@@ -1,7 +1,12 @@
 node_modules/
 site/
 frames/
-out/
+out/*
+!out/neuroprovideo_promo_60s.mp4
+!out/poster.jpg
 *.png
 works/src/
-works/*.mp4
+vendor/
+works/frames/
+works/manifest.json
+__pycache__/

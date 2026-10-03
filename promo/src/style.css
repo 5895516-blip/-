@@ -1,0 +1,37 @@
+@font-face { font-family: "Unbounded"; src: url("/vendor/fonts/Unbounded.ttf") format("truetype"); font-weight: 200 900; }
+@font-face { font-family: "Manrope"; src: url("/vendor/fonts/Manrope.ttf") format("truetype"); font-weight: 200 800; }
+
+:root {
+  --bg: #111111;
+  --gold: #C9A227;
+  --gold-dark: #9C7A22;
+  --cream: #F9E9B4;
+}
+
+html, body { margin: 0; background: #000; overflow: hidden; }
+#stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); }
+#gl { position: absolute; inset: 0; width: 1920px; height: 1080px; }
+#overlay, #flash, #black { position: absolute; inset: 0; pointer-events: none; }
+#flash { background: radial-gradient(circle at 50% 50%, #fff 0%, #fff6dc 45%, #f3dc9a 100%); opacity: 0; }
+#black { background: #000; opacity: 0; }
+
+.t { position: absolute; color: var(--cream); font-family: "Unbounded", sans-serif; font-weight: 700;
+     white-space: nowrap; will-change: transform, opacity, filter; opacity: 0;
+     text-shadow: 0 0 24px rgba(201,162,39,.35), 0 4px 30px rgba(0,0,0,.6); }
+.m { font-family: "Manrope", sans-serif; font-weight: 600; }
+.gold { background: linear-gradient(180deg, #FFF3C8 0%, #F9E9B4 25%, #C9A227 62%, #9C7A22 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none;
+        filter: drop-shadow(0 0 22px rgba(201,162,39,.45)); }
+.outline { color: transparent; -webkit-text-stroke: 3px var(--gold); text-shadow: 0 0 30px rgba(201,162,39,.45); }
+.center { left: 0; width: 1920px; text-align: center; }
+.shade { position: absolute; inset: 0; opacity: 0;
+         background: radial-gradient(ellipse 62% 50% at 50% 50%, rgba(0,0,0,.8) 0%, rgba(0,0,0,.45) 55%, rgba(0,0,0,0) 100%); }
+.shade-left { position: absolute; inset: 0; opacity: 0;
+         background: linear-gradient(90deg, rgba(0,0,0,.75) 0%, rgba(0,0,0,.45) 38%, rgba(0,0,0,0) 62%); }
+.rule { position: absolute; height: 3px; background: linear-gradient(90deg, var(--gold), rgba(201,162,39,0));
+        transform-origin: 0 50%; opacity: 0; box-shadow: 0 0 16px rgba(201,162,39,.7); }
+.logo { position: absolute; opacity: 0; filter: drop-shadow(0 0 28px rgba(201,162,39,.45)); }
+.btn { position: absolute; padding: 26px 64px; border: 3px solid var(--gold); border-radius: 999px;
+       font-family: "Unbounded", sans-serif; font-weight: 600; font-size: 38px; color: #111;
+       background: linear-gradient(180deg, #F9E9B4, #C9A227); box-shadow: 0 0 40px rgba(201,162,39,.55);
+       white-space: nowrap; opacity: 0; }
