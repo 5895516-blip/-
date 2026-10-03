@@ -913,7 +913,8 @@ async function renderAt(t) {
     sphereI = 0; pOpacity = 0.7;
     const out = eInCubic(prog(t, T.chips - 0.1, T.chips + 0.3));
     tube.visible = true;
-    const tp = lerp(0.04, 1, eInOutCubic(prog(t, T.drop2, T.chips - 0.2)));
+    const tpx = prog(t, T.drop2, T.chips - 0.2);
+    const tp = lerp(0.1, 1, tpx * 0.8 + 0.2 * eInOutCubic(tpx));
     const cnt = Math.floor(tp * TUBE_SEG) * 8 * 6;
     tube.geometry.setDrawRange(0, cnt);
     tube.material.opacity = 1 - out;
@@ -926,7 +927,7 @@ async function renderAt(t) {
       const c = stepCards[i];
       if (!reached) return;
       // момент достижения узла: где tp пересёк stepT[i]
-      const tHit = T.drop2 + (T.chips - 0.2 - T.drop2) * invInOut((stepT[i] - 0.04) / 0.96);
+      const tHit = T.drop2 + (T.chips - 0.2 - T.drop2) * invTp((stepT[i] - 0.1) / 0.9);
       const a = eOutBack(prog(t, tHit, tHit + 0.45), 1.5);
       c.visible = true; void tr;
       c.position.copy(p).add(v3(0, (i % 2 ? 1 : -1) * 1.15, 0.3));
@@ -1134,8 +1135,8 @@ async function renderAt(t) {
   finalPass.uniforms.uAb.value = 0.012 * aberr(t);
   composer.render();
 }
-// обратная к eInOutCubic (для момента прохода узла трассы)
-function invInOut(y) { let lo = 0, hi = 1; for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (eInOutCubic(m) < y) lo = m; else hi = m; } return (lo + hi) / 2; }
+// обратная к закону движения головы трассы (момент прохода узла)
+function invTp(y) { const f = (x) => x * 0.8 + 0.2 * eInOutCubic(x); let lo = 0, hi = 1; for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (f(m) < y) lo = m; else hi = m; } return (lo + hi) / 2; }
 
 window.renderAt = renderAt;
 await document.fonts.ready;

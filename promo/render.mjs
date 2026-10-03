@@ -109,6 +109,23 @@ async function full(workers) {
   const segs = await Promise.all(Array.from({ length: workers }, (_, i) =>
     worker(chromium, srv.address().port, i, i * per, Math.min(total, (i + 1) * per))));
   srv.close();
+  await assemble(segs);
+}
+
+// перерендер одного сегмента полного рендера (после правки сцены в его диапазоне) и пересборка
+async function redo(idx, workers) {
+  const { chromium } = await loadPlaywright();
+  const srv = await serve();
+  const total = FPS * DURATION, per = Math.ceil(total / 4);
+  const from = idx * per, to = Math.min(total, (idx + 1) * per), sub = Math.ceil((to - from) / workers);
+  const parts = await Promise.all(Array.from({ length: workers }, (_, k) =>
+    worker(chromium, srv.address().port, `${idx}_${k}`, from + k * sub, Math.min(to, from + (k + 1) * sub))));
+  srv.close();
+  const segs = [0, 1, 2, 3].flatMap((i) => (i === idx ? parts : [path.join(OUT, 'seg', `seg_${i}.mp4`)]));
+  await assemble(segs);
+}
+
+async function assemble(segs) {
   const list = path.join(OUT, 'seg', 'list.txt');
   fs.writeFileSync(list, segs.map((s) => `file '${s}'`).join('\n'));
   const mp4 = path.join(OUT, `neuroprovideo_promo_60s${SUFFIX}.mp4`);
@@ -123,4 +140,5 @@ async function full(workers) {
 const [mode, ...rest] = process.argv.slice(2);
 if (mode === 'keys') await keys(rest.map(Number));
 else if (mode === 'full') await full(Number(rest[0] || 4));
-else console.log('usage: node render.mjs keys <t...> | full [workers]');
+else if (mode === 'redo') await redo(Number(rest[0]), Number(rest[1] || 4));
+else console.log('usage: node render.mjs keys <t...> | full [workers] | redo <segment 0-3> [workers]');
