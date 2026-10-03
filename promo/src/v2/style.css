@@ -1,0 +1,20 @@
+/* дополнения v2 поверх ../style.css */
+.shade-bottom { position: absolute; inset: 0; opacity: 0;
+  background: linear-gradient(0deg, rgba(0,0,0,.85) 0%, rgba(0,0,0,.45) 30%, rgba(0,0,0,0) 55%); }
+.shade-top { position: absolute; inset: 0; opacity: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,.8) 0%, rgba(0,0,0,.35) 22%, rgba(0,0,0,0) 40%); }
+.kicker { font-family: "Manrope", sans-serif; font-weight: 700; letter-spacing: 8px; text-transform: uppercase;
+  color: var(--gold); font-size: 30px; }
+.tag { position: absolute; padding: 10px 22px; border: 2px solid rgba(201,162,39,.8); border-radius: 999px;
+  background: rgba(10,9,7,.72); color: var(--cream); font-family: "Manrope", sans-serif; font-weight: 700;
+  font-size: 32px; white-space: nowrap; opacity: 0; box-shadow: 0 0 22px rgba(201,162,39,.35); }
+.promo-box { position: absolute; padding: 18px 34px; border: 3px dashed var(--gold); border-radius: 18px;
+  font-family: "Unbounded", sans-serif; font-weight: 700; font-size: 46px; color: var(--cream);
+  letter-spacing: 4px; white-space: nowrap; opacity: 0; background: rgba(201,162,39,.08); }
+.qr { position: absolute; padding: 18px; background: #fff; border-radius: 22px; opacity: 0;
+  box-shadow: 0 0 50px rgba(201,162,39,.55); }
+.qr img { display: block; width: 280px; height: 280px; image-rendering: pixelated; }
+.contact { position: absolute; display: flex; gap: 56px; left: 0; width: 1920px; justify-content: center;
+  font-family: "Manrope", sans-serif; font-weight: 700; font-size: 38px; color: var(--cream); opacity: 0;
+  white-space: nowrap; text-shadow: 0 2px 20px rgba(0,0,0,.7); }
+.contact b { color: var(--gold); font-weight: 800; }

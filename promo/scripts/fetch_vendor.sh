@@ -14,10 +14,23 @@ else
   cp -r "$TMP/three/build" "$TMP/three/examples" vendor/three/
 fi
 
+# v2: карта суши для 3D-глобуса (из примеров three.js) и генератор QR-кода
+mkdir -p vendor/lib
+git clone -q --depth 1 --branch r186 --filter=blob:none --sparse https://github.com/mrdoob/three.js "$TMP/three-tex"
+git -C "$TMP/three-tex" sparse-checkout set examples/textures/planets
+cp "$TMP/three-tex/examples/textures/planets/earth_specular_2048.jpg" vendor/lib/earth_mask.jpg
+git clone -q --depth 1 https://github.com/kazuhikoarase/qrcode-generator "$TMP/qr"
+cp "$TMP/qr/js/dist/qrcode.mjs" vendor/lib/qrcode.mjs
+
 git clone -q --depth 1 --filter=blob:none --sparse https://github.com/google/fonts "$TMP/gfonts"
 git -C "$TMP/gfonts" sparse-checkout set ofl/unbounded ofl/manrope
 cp "$TMP/gfonts/ofl/unbounded/Unbounded[wght].ttf" vendor/fonts/Unbounded.ttf
 cp "$TMP/gfonts/ofl/manrope/Manrope[wght].ttf" vendor/fonts/Manrope.ttf
 
 curl -sSL -o vendor/logo.png https://neuroprovideo.ru/assets/logo.png
+# v2: аватары из отзывов на сайте
+mkdir -p vendor/site
+for n in viktoria-pavlova ilya-lebedev; do
+  curl -sSL -o "vendor/site/$n.png" "https://neuroprovideo.ru/assets/testimonials/$n.png"
+done
 ls -R vendor | head -20

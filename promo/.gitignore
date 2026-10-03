@@ -10,3 +10,5 @@ vendor/
 works/frames/
 works/manifest.json
 __pycache__/
+music/sfx_v2.wav
+music/mix_v2.wav

@@ -9,6 +9,12 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(ROOT, 'out');
 const FPS = 30, DURATION = 60, W = 1920, H = 1080;
+// версия ролика: PROMO=v2 node render.mjs ... — вторая (продающая) версия
+const VER = process.env.PROMO || 'v1';
+const PAGE = VER === 'v1' ? '/src/index.html' : `/src/${VER}/index.html`;
+const SUFFIX = VER === 'v1' ? '' : `_${VER}`;
+const AUDIO = fs.existsSync(path.join(ROOT, 'music', `mix${SUFFIX}.wav`)) && SUFFIX
+  ? path.join(ROOT, 'music', `mix${SUFFIX}.wav`) : path.join(ROOT, 'music', 'track.wav');
 
 async function loadPlaywright() {
   for (const p of ['playwright', '/opt/node-tools/node_modules/playwright/index.mjs']) {
@@ -36,7 +42,7 @@ async function openPage(browser, port) {
   let fatal = null;
   page.on('pageerror', (e) => { console.error('pageerror:', e.message); fatal = e; });
   page.on('console', (m) => { if (m.type() === 'error') console.error('console:', m.text()); });
-  await page.goto(`http://127.0.0.1:${port}/src/index.html`);
+  await page.goto(`http://127.0.0.1:${port}${PAGE}`);
   for (let i = 0; i < 600 && !(await page.evaluate(() => window.sceneReady === true)); i++) {
     if (fatal) throw fatal;
     await new Promise((ok) => setTimeout(ok, 200));
@@ -59,11 +65,11 @@ async function keys(times) {
   const srv = await serve();
   const browser = await chromium.launch(launchOpts);
   const page = await openPage(browser, srv.address().port);
-  fs.mkdirSync(path.join(OUT, 'keys'), { recursive: true });
+  fs.mkdirSync(path.join(OUT, 'keys' + SUFFIX), { recursive: true });
   for (const t of times) {
     const t0 = Date.now();
     const buf = await shot(page, t, 'png');
-    const f = path.join(OUT, 'keys', `key_${t.toFixed(2).padStart(5, '0')}.png`);
+    const f = path.join(OUT, 'keys' + SUFFIX, `key_${t.toFixed(2).padStart(5, '0')}.png`);
     fs.writeFileSync(f, buf);
     console.log(`${f}  ${(Date.now() - t0)} ms`);
   }
@@ -105,12 +111,12 @@ async function full(workers) {
   srv.close();
   const list = path.join(OUT, 'seg', 'list.txt');
   fs.writeFileSync(list, segs.map((s) => `file '${s}'`).join('\n'));
-  const mp4 = path.join(OUT, 'neuroprovideo_promo_60s.mp4');
-  await ffmpeg(['-f', 'concat', '-safe', '0', '-i', list, '-i', path.join(ROOT, 'music', 'track.wav'),
+  const mp4 = path.join(OUT, `neuroprovideo_promo_60s${SUFFIX}.mp4`);
+  await ffmpeg(['-f', 'concat', '-safe', '0', '-i', list, '-i', AUDIO,
     '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-preset', 'slow', '-b:v', '10M', '-maxrate', '12M', '-bufsize', '20M',
     '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-r', String(FPS), '-c:a', 'aac', '-b:a', '256k', '-ar', '48000',
     '-t', String(DURATION), '-movflags', '+faststart', mp4]).done;
-  await ffmpeg(['-ss', '57.5', '-i', mp4, '-frames:v', '1', '-q:v', '2', path.join(OUT, 'poster.jpg')]).done;
+  await ffmpeg(['-ss', '57.5', '-i', mp4, '-frames:v', '1', '-q:v', '2', path.join(OUT, `poster${SUFFIX}.jpg`)]).done;
   console.log('готово:', mp4);
 }
 
