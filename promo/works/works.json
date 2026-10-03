@@ -1,35 +1,137 @@
 {
   "yandex_public_key": "https://disk.yandex.ru/d/SLqj1Epd7hLuaw",
-  "note": "Работы из папки «Актуальные примеры» на Яндекс Диске. Если видео недоступно, prepare_works.py берёт превью-кадр с Диска. clip_start — откуда вырезать фрагмент (с).",
+  "note": "Работы из папки «Актуальные примеры» на Яндекс Диске. prepare_works.py вырезает 8 с с clip_start (если видео недоступно — берёт превью-кадр с Диска).",
   "works": [
-    { "slug": "mclaren",    "file": "McLaren (1).mp4",                  "clip_start": 2 },
-    { "slug": "cartoon",    "file": "Мультфильм.mp4",                   "clip_start": 20 },
-    { "slug": "bubbleli",   "file": "Bubble Li Latin music (2) (1).mp4", "clip_start": 3 },
-    { "slug": "yakimal",    "file": "Якимал.mp4",                       "clip_start": 10 },
-    { "slug": "spider",     "file": "робот человек паук.mp4",           "clip_start": 5 },
-    { "slug": "promo",      "file": "promotional video.mp4",            "clip_start": 8 },
-    { "slug": "aikido",     "file": "Якимал видео реклама.MP4",         "clip_start": 2 },
-    { "slug": "valentine",  "file": "ролик на 14 февраля.mp4",          "clip_start": 10 },
-    { "slug": "grill",      "file": "Yakimal .mp4",                     "clip_start": 4 },
-    { "slug": "imed",       "file": "imed ИМПЛАНТАЦИЯ.mov",             "clip_start": 15 },
-    { "slug": "snezhok",    "file": "Снежок Снежочек -23LUFS (1).mov",  "clip_start": 30 },
-    { "slug": "mramori",    "file": "Вариант 3 mramori.mp4",            "clip_start": 2 },
-    { "slug": "clothes",    "file": "Для бренда одежды.mp4",            "clip_start": 2 },
-    { "slug": "lanterns",   "file": "Садовые фонари.mp4",               "clip_start": 2 },
-    { "slug": "tesla",      "file": "Тесла анимация.mp4",               "clip_start": 1 }
+    {
+      "slug": "mclaren",
+      "file": "McLaren (1).mp4",
+      "clip_start": 1.5
+    },
+    {
+      "slug": "cartoon",
+      "file": "Мультфильм.mp4",
+      "clip_start": 28.5
+    },
+    {
+      "slug": "bubbleli",
+      "file": "Bubble Li Latin music (2) (1).mp4",
+      "clip_start": 4.0
+    },
+    {
+      "slug": "yakimal",
+      "file": "Якимал.mp4",
+      "clip_start": 17.0
+    },
+    {
+      "slug": "spider",
+      "file": "робот человек паук.mp4",
+      "clip_start": 7.0
+    },
+    {
+      "slug": "promo",
+      "file": "promotional video.mp4",
+      "clip_start": 26.5
+    },
+    {
+      "slug": "aikido",
+      "file": "Якимал видео реклама.MP4",
+      "clip_start": 5.5
+    },
+    {
+      "slug": "valentine",
+      "file": "ролик на 14 февраля.mp4",
+      "clip_start": 21.5
+    },
+    {
+      "slug": "grill",
+      "file": "Yakimal .mp4",
+      "clip_start": 1.0
+    },
+    {
+      "slug": "imed",
+      "file": "imed ИМПЛАНТАЦИЯ.mov",
+      "clip_start": 22.0
+    },
+    {
+      "slug": "snezhok",
+      "file": "Снежок Снежочек -23LUFS (1).mov",
+      "clip_start": 52.0
+    },
+    {
+      "slug": "mramori",
+      "file": "Вариант 3 mramori.mp4",
+      "clip_start": 2.5
+    },
+    {
+      "slug": "clothes",
+      "file": "Для бренда одежды.mp4",
+      "clip_start": 7.0
+    },
+    {
+      "slug": "lanterns",
+      "file": "Садовые фонари.mp4",
+      "clip_start": 4.5
+    },
+    {
+      "slug": "tesla",
+      "file": "Тесла анимация.mp4",
+      "clip_start": 2.0
+    }
   ],
   "carousel": [
-    { "slug": "mclaren",  "caption": "Короткие визуальные ролики" },
-    { "slug": "cartoon",  "caption": "Создание мультфильмов" },
-    { "slug": "bubbleli", "caption": "Рекламные ролики товаров" },
-    { "slug": "yakimal",  "caption": "Промо-ролики для компаний" }
+    {
+      "slug": "mclaren",
+      "caption": "Короткие визуальные ролики"
+    },
+    {
+      "slug": "cartoon",
+      "caption": "Создание мультфильмов"
+    },
+    {
+      "slug": "bubbleli",
+      "caption": "Рекламные ролики товаров"
+    },
+    {
+      "slug": "yakimal",
+      "caption": "Промо-ролики для компаний"
+    }
   ],
-  "carousel_fill": ["valentine", "spider", "aikido", "snezhok"],
-  "reasons": ["spider", "promo", "aikido", "valentine"],
-  "wall": ["bubbleli", "mclaren", "grill", "imed", "promo",
-           "mramori", "clothes", "cartoon", "lanterns", "snezhok",
-           "tesla", "aikido", "yakimal", "spider", "valentine"],
+  "carousel_fill": [
+    "valentine",
+    "spider",
+    "aikido",
+    "snezhok"
+  ],
+  "reasons": [
+    "spider",
+    "promo",
+    "aikido",
+    "valentine"
+  ],
+  "wall": [
+    "bubbleli",
+    "mclaren",
+    "grill",
+    "imed",
+    "promo",
+    "mramori",
+    "clothes",
+    "cartoon",
+    "lanterns",
+    "snezhok",
+    "tesla",
+    "aikido",
+    "yakimal",
+    "spider",
+    "valentine"
+  ],
   "site_captions_source": "https://neuroprovideo.ru/services/ — названия направлений студии",
-  "site_kinescope_works": ["czAAL4aXfvWcSHoUqLz58v", "5ms8PXEHxRxeeQzTPK7u5M", "ftdJ3mSVjPZr9bT79zJy3V",
-                           "gZquzRnb5AKdapHfJUQAbw", "vLfcUwGzyigDesR3LYZFkm", "mtg9n9UcskeHT1yoTTJUNu"]
+  "site_kinescope_works": [
+    "czAAL4aXfvWcSHoUqLz58v",
+    "5ms8PXEHxRxeeQzTPK7u5M",
+    "ftdJ3mSVjPZr9bT79zJy3V",
+    "gZquzRnb5AKdapHfJUQAbw",
+    "vLfcUwGzyigDesR3LYZFkm",
+    "mtg9n9UcskeHT1yoTTJUNu"
+  ]
 }

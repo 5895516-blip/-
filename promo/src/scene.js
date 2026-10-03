@@ -298,9 +298,9 @@ for (const w of works.works) {
 }
 // кадр видео-фрагмента по времени (если нарезка есть); иначе остаётся превью
 const bitmapCache = new Map();
-async function videoFrame(slug, t) {
+async function videoFrame(slug, local) {
   const e = textures[slug]; if (!e || !e.count) return;
-  const i = Math.floor(t * FPS) % e.count;
+  const i = Math.max(0, Math.floor(local * FPS + 1e-6)) % e.count;
   if (i === e.cur) return;
   const url = `/${e.frames}/${String(i + 1).padStart(4, '0')}.jpg`;
   let bmp = bitmapCache.get(url);
@@ -358,7 +358,8 @@ class Screen {
     this.setSlug(slug);
   }
   setSlug(slug) { this.slug = slug; }
-  update(t, { visible = true, opacity = 1, bright = 1, glow = 0 } = {}) {
+  update(t, { visible = true, opacity = 1, bright = 1, glow = 0, local = t } = {}) {
+    this.local = local;   // время внутри фрагмента работы
     this.mesh.visible = visible && opacity > 0.001;
     if (!this.mesh.visible) return;
     const e = textures[this.slug];
@@ -366,8 +367,10 @@ class Screen {
     this.mat.uniforms.map.value = e.tex;
     this.mat.uniforms.uImg.value.set(img.width || 16, img.height || 9);
     const s = this.slug.length * 1.37 + this.slug.charCodeAt(0) * 0.11;   // стабильное «зерно» для движения
-    this.mat.uniforms.uZoom.value = 1.1 + 0.05 * Math.sin(t * 0.33 + s);
-    this.mat.uniforms.uPan.value.set(0.025 * Math.sin(t * 0.27 + s * 2.0), 0.02 * Math.cos(t * 0.22 + s));
+    const still = !e.count;   // превью оживляем наездом, видео почти не трогаем
+    this.mat.uniforms.uZoom.value = still ? 1.1 + 0.05 * Math.sin(t * 0.33 + s) : 1.03 + 0.015 * Math.sin(t * 0.33 + s);
+    const pan = still ? 1 : 0.4;
+    this.mat.uniforms.uPan.value.set(pan * 0.025 * Math.sin(t * 0.27 + s * 2.0), pan * 0.02 * Math.cos(t * 0.22 + s));
     this.mat.uniforms.uOpacity.value = opacity;
     this.mat.uniforms.uBright.value = bright;
     this.mat.uniforms.uGlow.value = glow;
@@ -610,7 +613,7 @@ async function renderAt(t) {
     const a = ((i - pos) / N_RING) * Math.PI * 2;
     const featured = i === target ? eOutCubic(clamp(inBar / 0.4)) : (i === target - 2 && inBar < 0.4 ? 1 - eOutCubic(inBar / 0.4) : 0);
     const r = RING_R + featured * 2.4;
-    let p = v3(Math.sin(a) * r, 1.35 + featured * 0.25, Math.cos(a) * r);
+    let p = v3(Math.sin(a) * r, 1.1 + featured * 0.15, Math.cos(a) * r);
     let op = 1, rotY = a, scale = 0.95 + featured * 0.2 + kick * 0.015 * featured;
     // влёт
     const inK = eOutCubic(clamp((t - 15 - i * 0.03) / 0.7));
@@ -622,7 +625,8 @@ async function renderAt(t) {
       rotY += o * (i % 2 ? 2 : -2); op *= 1 - o;
     }
     const back = Math.cos(a) < 0 ? 0.55 : 1;
-    setScreen(s, t, p, rotY, 0, scale, { opacity: op, bright: (0.55 + 0.45 * featured) * back, glow: featured * (0.8 + kick) });
+    const local = i % 2 === 0 ? t - (15 + (i / 2) * BAR) : t - 15;   // избранная работа стартует, когда выезжает
+    setScreen(s, t, p, rotY, 0, scale, { opacity: op, bright: (0.55 + 0.45 * featured) * back, glow: featured * (0.8 + kick), local });
   }
 
   // --- экран причин: смены на 33.75 (переворот), 37.5 (свайп), 41.25 (переворот)
@@ -646,7 +650,7 @@ async function renderAt(t) {
     const toNext = t - tn;   // < 0 до смены
     // текущий экран A — работа reasons[i]
     reasonA.setSlug(works.reasons[i]);
-    let rotY = ROT_Y, posA = base.clone(), opA = 1 - exit;
+    let rotY = ROT_Y, posA = base.clone(), opA = 1 - exit, localA = dt;
     // хвост входа текущего (если пришёл переворотом или свайпом)
     if (i > 0 && dt < 0.3) {
       if (sw(i) === 'flip') rotY = ROT_Y + Math.PI * (1 - eOutCubic(clamp((dt + 0.2) / 0.5)));   // второй полуоборот
@@ -659,18 +663,18 @@ async function renderAt(t) {
       if (kind === 'flip') {
         rotY = ROT_Y + Math.PI * (1 - eOutCubic(clamp((toNext + 0.2) / 0.5)));
         // после 90° показываем уже следующую работу
-        if (toNext >= 0) reasonA.setSlug(works.reasons[nextI]);
+        if (toNext >= 0) { reasonA.setSlug(works.reasons[nextI]); localA = toNext; }
       } else {
         posA.x -= 11 * eInCubic(clamp((toNext + 0.2) / 0.3)); opA *= 1 - clamp((toNext + 0.05) / 0.2);
         showB = toNext >= 0;
         if (showB) {
           reasonB.setSlug(works.reasons[nextI]);
           const pb = base.clone(); pb.x += 9 * (1 - eOutExpo(clamp(toNext / 0.42)));
-          setScreen(reasonB, t, pb, ROT_Y, ROT_X, SC * pulse, { opacity: 1, bright: 1, glow });
+          setScreen(reasonB, t, pb, ROT_Y, ROT_X, SC * pulse, { opacity: 1, bright: 1, glow, local: toNext });
         }
       }
     }
-    setScreen(reasonA, t, posA, rotY, ROT_X, SC * pulse, { opacity: opA, bright: 1, glow });
+    setScreen(reasonA, t, posA, rotY, ROT_X, SC * pulse, { opacity: opA, bright: 1, glow, local: localA });
   }
 
   // --- видеостена
@@ -701,14 +705,14 @@ async function renderAt(t) {
       const pos = v3(cx * (1 + 0.012 * kick) + outK * cx * 0.6, cy * (1 + 0.012 * kick) + outK * cy * 0.6, z);
       const op = inK * (1 - outK);
       setScreen(s, t, pos, 0, 0, 1, {
-        opacity: op, bright: isHi ? 1.0 : 0.34 + 0.16 * kick, glow: isHi ? 0.6 + 1.2 * hk : 0.05 + 0.25 * kick,
+        opacity: op, bright: isHi ? 1.0 : 0.34 + 0.16 * kick, glow: isHi ? 0.6 + 1.2 * hk : 0.05 + 0.25 * kick, local: t - 45,
       });
     }
   } else wall.forEach((s) => s.update(t, { visible: false }));
 
   // --- кадры видео для видимых экранов
-  const vis = new Set([...carousel, reasonA, reasonB, ...wall].filter((s) => s.mesh.visible).map((s) => s.slug));
-  await Promise.all([...vis].map((slug) => videoFrame(slug, t)));
+  const vis = new Map([...carousel, reasonA, reasonB, ...wall].filter((s) => s.mesh.visible).map((s) => [s.slug, s.local]));
+  await Promise.all([...vis].map(([slug, local]) => videoFrame(slug, local)));
   // после замены текстуры обновить ссылки
   for (const s of [...carousel, reasonA, reasonB, ...wall]) if (s.mesh.visible) s.mat.uniforms.map.value = textures[s.slug].tex;
 
