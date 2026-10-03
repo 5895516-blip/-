@@ -1,0 +1,19 @@
+{
+  "source": "https://neuroprovideo.ru/services/ (карточки услуг; на сайте всего 6 работ, все в плеере Kinescope)",
+  "status": "видео и постеры не скачаны: kinescope.io / edge-ams-1.kinescopecdn.net недоступны из окружения",
+  "works": [
+    { "id": "czAAL4aXfvWcSHoUqLz58v", "caption": "Промо-ролики для компаний", "page": "/services/promo-roliki/",
+      "poster": "https://edge-ams-1.kinescopecdn.net/dd352899-c51a-4053-ae4b-1db930971e40/posters/ac09e585-34b4-49c0-a2d0-3fdbc9eb2769/poster_lg/01a039a7-dd9f-77eb-9edf-02566e76ee0d.jpg" },
+    { "id": "5ms8PXEHxRxeeQzTPK7u5M", "caption": "Музыкальные видеоклипы", "page": "/services/muzykalnye-klipy/",
+      "poster": "https://edge-ams-1.kinescopecdn.net/dd352899-c51a-4053-ae4b-1db930971e40/posters/9172373b-d337-4138-a559-01b4bcd1fc79/poster_lg/01a039f2-262e-7b33-889e-0f4c7cd73105.jpg" },
+    { "id": "ftdJ3mSVjPZr9bT79zJy3V", "caption": "Создание мультфильмов", "page": "/services/multfilmy/",
+      "poster": "https://edge-ams-1.kinescopecdn.net/dd352899-c51a-4053-ae4b-1db930971e40/posters/9fb32aa3-7fc7-4317-9a46-6194a19d178d/poster_lg/01a039ac-9bb3-7b33-9419-f9db39a9e45f.jpg" },
+    { "id": "gZquzRnb5AKdapHfJUQAbw", "caption": "Имиджевые видеоролики", "page": "/services/imidzhevye-roliki/",
+      "poster": "https://edge-ams-1.kinescopecdn.net/dd352899-c51a-4053-ae4b-1db930971e40/posters/7f9de617-431f-44df-83e3-093701b746b3/poster_lg/01a039b1-0c78-79b8-af54-1fad6688dcf3.jpg" },
+    { "id": "vLfcUwGzyigDesR3LYZFkm", "caption": "Рекламные ролики товаров", "page": "/services/reklamnye-roliki/",
+      "poster": "https://edge-ams-1.kinescopecdn.net/dd352899-c51a-4053-ae4b-1db930971e40/posters/f6671db8-d036-4442-8df4-94c8e97925c5/poster_lg/01a039ee-d9eb-7db2-89d4-deb45973e677.jpg" },
+    { "id": "mtg9n9UcskeHT1yoTTJUNu", "caption": "Короткие визуальные ролики", "page": "/services/korotkie-roliki/",
+      "poster": "https://edge-ams-1.kinescopecdn.net/dd352899-c51a-4053-ae4b-1db930971e40/posters/720f2b8b-288b-4303-b694-8ff4b7fe62aa/poster_lg/01a039aa-2b7e-79b1-99d8-d327f9dcc17c.jpg" }
+  ],
+  "logo": "https://neuroprovideo.ru/assets/logo.png"
+}

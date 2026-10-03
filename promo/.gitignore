@@ -3,3 +3,5 @@ site/
 frames/
 out/
 *.png
+works/src/
+works/*.mp4
