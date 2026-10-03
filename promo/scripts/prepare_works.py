@@ -3,7 +3,7 @@
 
 Для каждой работы из works/works.json:
   * превью-кадр с Яндекс Диска -> works/src/previews/<slug>.jpg (всегда);
-  * если видео доступно -> фрагмент CLIP_SEC с clip_start, нарезанный в
+  * если видео доступно -> файл в works/src/video/, фрагмент CLIP_SEC с clip_start, нарезанный в
     works/frames/<slug>/%04d.jpg (960x540, 30 fps, cover-crop).
 Итог пишется в works/manifest.json, его читает сцена.
 """
@@ -54,10 +54,18 @@ def main():
         if not (os.path.isdir(frames_dir) and os.listdir(frames_dir)):
             try:
                 href = api(API + "/download", public_key=key, path=item["path"])["href"]
+                if not href:
+                    raise RuntimeError("Диск не выдал ссылку на скачивание")
+                # ffmpeg не умеет ходить через прокси окружения, поэтому файл качаем curl'ом
+                src = os.path.join(WORKS, "src", "video", slug + os.path.splitext(w["file"])[1].lower())
+                os.makedirs(os.path.dirname(src), exist_ok=True)
+                if not os.path.exists(src):
+                    subprocess.run(["curl", "-sS", "-L", "--fail", "-o", src + ".part", href], check=True, timeout=1800)
+                    os.replace(src + ".part", src)
                 os.makedirs(frames_dir, exist_ok=True)
                 subprocess.run([
                     "ffmpeg", "-v", "error", "-y", "-ss", str(w.get("clip_start", 0)),
-                    "-i", href, "-t", str(CLIP_SEC),
+                    "-i", src, "-t", str(CLIP_SEC),
                     "-vf", "fps=30,scale=960:540:force_original_aspect_ratio=increase,crop=960:540",
                     "-q:v", "3", os.path.join(frames_dir, "%04d.jpg"),
                 ], check=True, timeout=600)
