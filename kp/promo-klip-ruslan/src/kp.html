@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>КП — промо-клип 1:00</title>
+<style>
+  @page { size: A4; margin: 0; }
+  :root { --teal:#00C4A8; --teal-d:#00A08A; --ink:#272822; --body:#3B3C36; --grey:#7F807C; --line:#E3E4E3; --soft:#F2F3F2; --tint:#E6F8F5; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #fff; }
+  body { font-family: "Inter", Arial, sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { width: 210mm; height: 297mm; position: relative; padding: 24mm 18mm 22mm; overflow: hidden; page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+  .c { position: absolute; width: 11mm; height: 11mm; border: 0 solid var(--ink); }
+  .c.tl { top: 8mm; left: 8mm; border-top-width: 2.2pt; border-left-width: 2.2pt; }
+  .c.tr { top: 8mm; right: 8mm; border-top-width: 2.2pt; border-right-width: 2.2pt; }
+  .c.bl { bottom: 8mm; left: 8mm; border-bottom-width: 2.2pt; border-left-width: 2.2pt; }
+  .c.br { bottom: 8mm; right: 8mm; border-bottom-width: 2.2pt; border-right-width: 2.2pt; }
+  .top { position: absolute; top: 13mm; left: 18mm; right: 18mm; display: flex; justify-content: space-between; align-items: center; }
+  .top img { height: 13mm; }
+  .tag { font-size: 6.8pt; letter-spacing: .28em; text-transform: uppercase; color: var(--grey); font-weight: 600; }
+  .rec { font-size: 7pt; letter-spacing: .25em; color: var(--grey); font-weight: 600; }
+  .rec::before { content: ""; display: inline-block; width: 6pt; height: 6pt; border-radius: 50%; background: var(--teal); margin-right: 7pt; vertical-align: 0; }
+  .foot { position: absolute; bottom: 13mm; left: 18mm; right: 18mm; display: flex; justify-content: space-between; font-size: 7.5pt; color: var(--grey); }
+  .inner { margin-top: 14mm; }
+
+  /* cover */
+  .cover-logo { height: 21mm; margin-top: -10mm; }
+  .eyebrow { font-size: 6.8pt; letter-spacing: .3em; text-transform: uppercase; color: var(--teal-d); font-weight: 700; margin: 8mm 0 3mm; }
+  h1.big { font-family: "Inter Tight","Inter",sans-serif; font-weight: 900; font-size: 36pt; line-height: 1.04; letter-spacing: -.02em; }
+  h1.big em { font-style: normal; color: var(--teal); }
+  .lead { font-size: 11pt; line-height: 1.6; margin: 5mm 0 6mm; color: var(--body); }
+  .meta { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1pt solid var(--ink); border-bottom: 1pt solid var(--line); padding: 3mm 0; gap: 4mm; }
+  .meta b { display: block; font-size: 6.3pt; letter-spacing: .25em; color: var(--grey); font-weight: 600; text-transform: uppercase; margin-bottom: 1mm; }
+  .meta span { font-size: 9pt; font-weight: 600; }
+  .sec-h { display: flex; justify-content: space-between; align-items: baseline; margin: 6mm 0 3mm; }
+  .sec-h h2 { font-size: 15pt; font-weight: 800; letter-spacing: -.01em; }
+  .sec-h small { font-size: 7.5pt; color: var(--grey); }
+  .variants { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .var { border-radius: 3mm; padding: 6mm 6mm 5mm; color: #fff; display: flex; flex-direction: column; }
+  .var.dark { background: var(--ink); }
+  .var.teal { background: var(--teal); }
+  .var .k { font-size: 6.5pt; letter-spacing: .28em; text-transform: uppercase; opacity: .75; font-weight: 600; }
+  .var .n { font-size: 13pt; font-weight: 700; margin-top: 3mm; }
+  .var .p { font-size: 22pt; font-weight: 900; letter-spacing: -.01em; margin: 1mm 0 3mm; font-family: "Inter Tight","Inter",sans-serif; }
+  .var ul { list-style: none; font-size: 8.4pt; line-height: 1.45; flex: 1; }
+  .var li { position: relative; padding-left: 4.5mm; margin-bottom: 1.4mm; }
+  .var li::before { content: ""; position: absolute; left: 0; top: 1.6mm; width: 4.5pt; height: 4.5pt; border-radius: 50%; background: var(--teal); }
+  .var.teal li::before { background: #fff; }
+  .var .d { font-size: 7.8pt; margin-top: 3mm; opacity: .85; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6mm; margin-top: 7mm; }
+  .stats div { border-top: 2pt solid var(--teal); padding-top: 3mm; }
+  .stats b { font-size: 14pt; font-weight: 800; display: block; }
+  .stats span { font-size: 7.8pt; color: var(--body); line-height: 1.4; display: block; }
+
+  /* sections */
+  .sec { display: grid; grid-template-columns: 22mm 1fr; margin-bottom: 5mm; }
+  .num { font-family: "Inter Tight","Inter",sans-serif; font-weight: 900; font-size: 30pt; color: var(--teal); line-height: 1; }
+  .sec h3 { font-size: 14pt; font-weight: 800; margin-bottom: 2mm; letter-spacing: -.01em; }
+  .chips { margin-bottom: 3mm; }
+  .chip { display: inline-block; font-size: 7pt; font-weight: 600; padding: .8mm 2.5mm; border-radius: 3mm; margin-right: 1.5mm; }
+  .chip.d { background: var(--ink); color: #fff; }
+  .chip.t { background: var(--tint); color: var(--teal-d); }
+  p { color: var(--body); margin-bottom: 2mm; }
+  .box { border: 1pt solid var(--ink); border-radius: 2.5mm; padding: 4mm 5mm; margin: 3mm 0; }
+  .box .t, .note .t, .card .t { font-size: 6.5pt; letter-spacing: .25em; text-transform: uppercase; font-weight: 700; margin-bottom: 2mm; }
+  .note .t { color: var(--teal-d); }
+  table.kv { width: 100%; border-collapse: collapse; font-size: 8.6pt; }
+  table.kv td { padding: .8mm 0; vertical-align: top; color: var(--body); }
+  table.kv td:first-child { width: 34mm; font-weight: 700; color: var(--teal-d); }
+  .note { background: var(--soft); border-radius: 2.5mm; padding: 3.5mm 5mm; margin: 3mm 0; font-size: 8.6pt; line-height: 1.45; }
+  .note p { margin: 0; }
+  ol.steps { list-style: none; counter-reset: s; }
+  ol.steps li { counter-increment: s; position: relative; padding-left: 8mm; margin-bottom: 1.8mm; color: var(--body); font-size: 9.3pt; }
+  ol.steps li::before { content: counter(s); position: absolute; left: 0; top: .3mm; width: 4.6mm; height: 4.6mm; border: 1pt solid var(--ink); border-radius: 50%; font-size: 7pt; font-weight: 700; text-align: center; line-height: 4.4mm; color: var(--ink); }
+  ol.steps b { color: var(--ink); }
+
+  /* tables */
+  table.cmp { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 8.4pt; border: 1pt solid var(--line); border-radius: 2.5mm; overflow: hidden; }
+  table.cmp th { text-align: left; font-weight: 700; padding: 3mm 3.5mm; vertical-align: bottom; color: #fff; background: var(--ink); }
+  table.cmp th small { display: block; font-size: 6.3pt; letter-spacing: .25em; text-transform: uppercase; font-weight: 600; opacity: .8; margin-bottom: .8mm; }
+  table.cmp th.tl { background: var(--teal); }
+  table.cmp th.lbl { font-size: 6.3pt; letter-spacing: .25em; text-transform: uppercase; }
+  table.cmp td { padding: 2mm 3.5mm; border-top: 1pt solid var(--line); vertical-align: top; color: var(--body); line-height: 1.4; }
+  table.cmp td:first-child { font-weight: 700; color: var(--ink); width: 34mm; }
+  table.cmp.wide td:first-child { width: 52mm; }
+  table.cmp.opt td:first-child { width: auto; font-weight: 500; }
+  table.cmp tr:nth-child(even) td { background: #FAFAFA; }
+  table.cmp tr.tot td { font-weight: 800; color: var(--ink); border-top: 1.5pt solid var(--ink); background: #fff; }
+  table.cmp td.n { text-align: right; width: 22mm; }
+  table.cmp th.n { text-align: right; width: 26mm; white-space: nowrap; }
+  .fine { font-size: 7.6pt; color: var(--grey); margin-top: 2.5mm; line-height: 1.45; }
+  .pay { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .pay > div { border-radius: 2.5mm; padding: 4mm 5mm; }
+  .pay .l { background: var(--soft); }
+  .pay .r { background: var(--ink); color: #fff; }
+  .pay .t { font-size: 6.5pt; letter-spacing: .25em; text-transform: uppercase; font-weight: 700; color: var(--teal-d); margin-bottom: 2mm; }
+  .pay .r .t { color: var(--teal); }
+  .pay .row { display: flex; justify-content: space-between; font-size: 8.6pt; padding: 1.8mm 0; border-bottom: .8pt solid rgba(0,0,0,.12); }
+  .pay .r .row { border-color: rgba(255,255,255,.2); }
+  .pay .row b { font-size: 11pt; font-weight: 800; }
+  .pay .row:last-child { border: 0; }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .card { border-radius: 2.5mm; padding: 4.5mm 5mm; font-size: 8.6pt; }
+  .card.dark { background: var(--ink); color: #fff; }
+  .card.dark .t { color: var(--teal); }
+  .card.soft { background: var(--soft); color: var(--body); }
+  .card.soft .t { color: var(--teal-d); }
+  .card ul { list-style: none; }
+  .card li { position: relative; padding-left: 6mm; margin-bottom: 1.8mm; line-height: 1.4; }
+  .card.dark li::before { content: ""; position: absolute; left: 0; top: .5mm; width: 3.2mm; height: 3.2mm; border: 1pt solid var(--teal); border-radius: .6mm; }
+  .card.soft li::before { content: "—"; position: absolute; left: 0; color: var(--teal-d); }
+  table.req { width: 100%; border-collapse: separate; border-spacing: 0; border: 1pt solid var(--line); border-radius: 2.5mm; font-size: 8.2pt; }
+  table.req td { padding: 2.1mm 4mm; border-top: 1pt solid var(--line); color: var(--body); }
+  table.req tr:first-child td { border-top: 0; }
+  table.req td:first-child { width: 33mm; color: var(--teal-d); font-weight: 700; }
+  .final { display: grid; grid-template-columns: 14mm 1fr; gap: 6mm; align-items: center; border: 1.5pt solid var(--teal); border-radius: 3mm; padding: 6mm 8mm; margin-top: 8mm; font-size: 10pt; line-height: 1.6; }
+  .final .dot { width: 12mm; height: 12mm; border-radius: 50%; background: var(--teal); }
+  .final b { color: var(--ink); }
+  .final p { margin: 0; }
+  .mt { margin-top: 7mm; }
+</style>
+</head><body>
+
+<!-- ============ 01 COVER ============ -->
+<section class="page">
+  <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+  <div class="top"><span></span><span class="rec">REC · КП · 1:00</span></div>
+  <img class="cover-logo" src="logo.png" alt="AI в кадре">
+  <div class="eyebrow">Коммерческое предложение</div>
+  <h1 class="big">Промо-клип<br>вашего бренда <em>1:00</em></h1>
+  <p class="lead">Руслан, добрый день! Да, берём целиком: придумаем сценарий и соберём минутный клип под вашу музыку. Монтаж в ритм трека, бренд встроен в сцены, а не наклеен плашкой поверх.</p>
+  <div class="meta">
+    <div><b>Формат</b><span>Клип под музыку · 1:00</span></div>
+    <div><b>Сценарий</b><span>Разрабатываем мы</span></div>
+    <div><b>Срок</b><span>10–14 рабочих дней</span></div>
+    <div><b>Оплата</b><span>50 / 50</span></div>
+  </div>
+
+  <div class="sec-h"><h2>Два варианта</h2><small>цены без НДС · студия на УСН</small></div>
+  <div class="variants">
+    <div class="var dark">
+      <div class="k">Вариант 1</div>
+      <div class="n">Стандарт</div>
+      <div class="p">55 000 ₽</div>
+      <ul>
+        <li>Концепция и сценарий клипа под ваш трек</li>
+        <li>До 20 уникальных планов, монтаж на бит</li>
+        <li>Логотип и продукт бренда в сценах</li>
+        <li>Full HD, 16:9, 5 правок</li>
+      </ul>
+      <div class="d">10 рабочих дней</div>
+    </div>
+    <div class="var teal">
+      <div class="k">Вариант 2</div>
+      <div class="n">Премиум</div>
+      <div class="p">110 000 ₽</div>
+      <ul>
+        <li>3 концепции на выбор, сценарий по лучшей</li>
+        <li>До 35 планов, пролёты камеры, переходы на бит</li>
+        <li>Единый герой бренда через весь клип</li>
+        <li>4K, версия 9:16 и нарезка 15 с, 10 правок</li>
+      </ul>
+      <div class="d">14 рабочих дней</div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div><b>600+</b><span>проектов в ИИ-видео: реклама, презентации, эксплейнеры</span></div>
+    <div><b>200 млн+</b><span>просмотров у роликов, которые мы сделали</span></div>
+    <div><b>200 000+</b><span>подписчиков читают нас в соцсетях</span></div>
+  </div>
+  <div class="foot"><span>AI в кадре · aivkadre.ru</span><span>01 / 05</span></div>
+</section>
+
+<!-- ============ 02 TASK ============ -->
+<section class="page">
+  <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+  <div class="top"><img src="logo.png" alt=""><span class="tag">Коммерческое предложение · задача</span></div>
+  <div class="inner">
+    <div class="sec">
+      <div class="num">01</div>
+      <div>
+        <h3>Что мы поняли из задачи</h3>
+        <div class="chips"><span class="chip d">1 минута · клип под музыку</span><span class="chip t">сценарий с нуля</span></div>
+        <p>Вам нужен промо-клип бренда на минуту. Музыка у вас есть, озвучка не нужна, сценария пока нет — его разрабатываем мы. Значит, главное — идея и ритм: клип должен держать внимание всю минуту и запомниться брендом.</p>
+        <div class="box">
+          <div class="t">Из чего соберём клип</div>
+          <table class="kv">
+            <tr><td>История</td><td>Завязка, развитие и финал с логотипом, а не нарезка красивых кадров.</td></tr>
+            <tr><td>Ритм</td><td>Смена планов на сильные доли, ускорение в припеве, пауза перед финалом.</td></tr>
+            <tr><td>Бренд</td><td>Логотип, продукт и фирменные цвета живут внутри сцен.</td></tr>
+            <tr><td>Стиль</td><td>Один визуальный язык на весь клип: свет, палитра, оптика. Утверждаете его до генерации.</td></tr>
+          </table>
+        </div>
+        <div class="note">
+          <div class="t">Чего не делаем и почему</div>
+          <p><b>Пение в кадр на крупных планах.</b> Синхрон губ с вокалом — слабое место ИИ-видео. Если в клипе поёт персонаж, держим его на среднем плане.<br>
+          <b>Лицо реального человека по одному фото.</b> Если в клипе нужны вы или амбассадор, нужны фото с разных ракурсов или короткая съёмка, иначе сходство не гарантируем.<br>
+          <b>Логотип и упаковку «на глаз».</b> Логотип накладываем графикой, продукт на крупных планах делаем по вашим фото.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="num">02</div>
+      <div>
+        <h3>Как устроена работа</h3>
+        <ol class="steps">
+          <li><b>Концепция и сценарий.</b> Слушаем трек, размечаем его по секундам и пишем сценарий. В Премиуме — три концепции на выбор.</li>
+          <li><b>Раскадровка и стилевые кадры.</b> Каждый план привязан к такту. Ключевые кадры в стиле клипа — утверждаете, и дальше всё в этом стиле.</li>
+          <li><b>Генерация и анимация.</b> Сцены, бренд в кадре, движение камеры. Каждый план в нескольких дублях, берём лучший.</li>
+          <li><b>Монтаж на бит, графика, цвет.</b> Склейка под трек, переходы, логотип, цветокоррекция.</li>
+          <li><b>Правки и сдача.</b> Черновой монтаж, правки, финальный мастер.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>AI в кадре · aivkadre.ru</span><span>02 / 05</span></div>
+</section>
+
+<!-- ============ 03 PRICE ============ -->
+<section class="page">
+  <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+  <div class="top"><img src="logo.png" alt=""><span class="tag">Коммерческое предложение · стоимость</span></div>
+  <div class="inner">
+    <div class="sec-h" style="margin-top:0"><h2>Что входит в каждый вариант</h2><small>цены без НДС</small></div>
+    <table class="cmp">
+      <tr><th class="lbl">Параметр</th><th><small>Стандарт</small>55 000 ₽</th><th class="tl"><small>Премиум</small>110 000 ₽</th></tr>
+      <tr><td>Хронометраж</td><td>1:00, под ваш трек</td><td>1:00, под ваш трек</td></tr>
+      <tr><td>Сценарий</td><td>1 концепция и сценарий с раскадровкой</td><td>3 концепции на выбор, сценарий по лучшей</td></tr>
+      <tr><td>Уникальных планов</td><td>до 20</td><td>до 35, плюс сложные пролёты камеры</td></tr>
+      <tr><td>Стилевые кадры</td><td>3 кадра</td><td>5 кадров в двух вариантах стиля</td></tr>
+      <tr><td>Бренд в кадре</td><td>Логотип и продукт в сценах</td><td>Всё из Стандарта + единый герой бренда через весь клип</td></tr>
+      <tr><td>Монтаж</td><td>На бит трека, простые переходы</td><td>На бит, переходы через объекты и движение камеры</td></tr>
+      <tr><td>Графика</td><td>Логотип, финальная плашка</td><td>Анимированная типографика, финальная плашка</td></tr>
+      <tr><td>Цвет</td><td>Единая цветокоррекция</td><td>Покадровая цветокоррекция</td></tr>
+      <tr><td>Разрешение</td><td>Full HD 1080p, 16:9</td><td>4K + Full HD, 16:9</td></tr>
+      <tr><td>Версии для соцсетей</td><td>—</td><td>Версия 9:16 + нарезка 15 с для рекламы + обложка</td></tr>
+      <tr><td>Правки</td><td>5 правок</td><td>10 правок</td></tr>
+      <tr class="tot"><td>Срок</td><td>10 рабочих дней</td><td>14 рабочих дней</td></tr>
+    </table>
+    <p class="fine">Правка — одно конкретное изменение: заменить план, поправить надпись, сдвинуть склейку. Цена без НДС: студия работает на УСН. Дополнительных счетов сверх согласованного объёма не выставляем.</p>
+
+    <div class="sec-h mt"><h2>Условия оплаты</h2><small>50% аванс · 50% после сдачи</small></div>
+    <div class="pay">
+      <div class="l">
+        <div class="t">Стандарт</div>
+        <div class="row"><span>Аванс при старте, 50%</span><b>27 500 ₽</b></div>
+        <div class="row"><span>После утверждения финала, 50%</span><b>27 500 ₽</b></div>
+        <div class="row"><span>Итого</span><b>55 000 ₽</b></div>
+      </div>
+      <div class="r">
+        <div class="t">Премиум</div>
+        <div class="row"><span>Аванс при старте, 50%</span><b>55 000 ₽</b></div>
+        <div class="row"><span>После утверждения финала, 50%</span><b>55 000 ₽</b></div>
+        <div class="row"><span>Итого</span><b>110 000 ₽</b></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>AI в кадре · aivkadre.ru</span><span>03 / 05</span></div>
+</section>
+
+<!-- ============ 04 TIMING ============ -->
+<section class="page">
+  <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+  <div class="top"><img src="logo.png" alt=""><span class="tag">Коммерческое предложение · сроки</span></div>
+  <div class="inner">
+    <div class="sec-h" style="margin-top:0"><h2>Сроки</h2><small>в рабочих днях</small></div>
+    <table class="cmp wide">
+      <tr><th class="lbl">Этап</th><th class="lbl">Результат</th><th class="n"><small>Стандарт</small></th><th class="n tl"><small>Премиум</small></th></tr>
+      <tr><td>Концепция и сценарий</td><td>Сценарий, разметка трека</td><td class="n">2</td><td class="n">3</td></tr>
+      <tr><td>Раскадровка и стилевые кадры</td><td>Таблица планов, ключевые кадры</td><td class="n">2</td><td class="n">2</td></tr>
+      <tr><td>Генерация и анимация</td><td>Все планы клипа</td><td class="n">4</td><td class="n">6</td></tr>
+      <tr><td>Монтаж, графика, цвет</td><td>Черновой монтаж (в Премиуме + 9:16 и нарезка)</td><td class="n">1</td><td class="n">2</td></tr>
+      <tr><td>Правки и финал</td><td>Готовый клип</td><td class="n">1</td><td class="n">1</td></tr>
+      <tr class="tot"><td>Итого</td><td></td><td class="n">10</td><td class="n">14</td></tr>
+    </table>
+    <p class="fine">Время на ваши согласования в срок не входит: обычно это по 1–2 дня на сценарий и на черновой монтаж. Если нужно быстрее, смотрите опцию срочного запуска.</p>
+
+    <div class="sec-h mt"><h2>Что можно добавить</h2><small>к любому варианту</small></div>
+    <table class="cmp opt">
+      <tr><th class="lbl">Опция</th><th class="n"><small>Стандарт</small></th><th class="n tl"><small>Премиум</small></th></tr>
+      <tr><td>Версия 9:16 + нарезка 15 с для рекламы + обложка</td><td class="n">+12 000 ₽</td><td class="n">включено</td></tr>
+      <tr><td>Надписи и титры на втором языке</td><td class="n">+5 000 ₽</td><td class="n">+5 000 ₽</td></tr>
+      <tr><td>Подбор лицензионного трека, если своего нет</td><td class="n">+5 000 ₽</td><td class="n">+5 000 ₽</td></tr>
+      <tr><td>Дополнительные 30 секунд хронометража</td><td class="n">+25 000 ₽</td><td class="n">+50 000 ₽</td></tr>
+      <tr><td>Срочный запуск: срок короче на 30%</td><td class="n">+20%</td><td class="n">+20%</td></tr>
+      <tr><td>Следующий клип для вашего бренда</td><td class="n">−15%</td><td class="n">−15%</td></tr>
+    </table>
+
+    <div class="box mt">
+      <div class="t">Инструменты</div>
+      <p style="margin:0">Набор нейросетей и софта подбираем под задачу. Конкретный стек раскрываем на этапе ТЗ, при необходимости под NDA.</p>
+    </div>
+  </div>
+  <div class="foot"><span>AI в кадре · aivkadre.ru</span><span>04 / 05</span></div>
+</section>
+
+<!-- ============ 05 START ============ -->
+<section class="page">
+  <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+  <div class="top"><img src="logo.png" alt=""><span class="tag">Коммерческое предложение · старт</span></div>
+  <div class="inner">
+    <div class="sec-h" style="margin-top:0"><h2>Что нужно от вас для старта</h2></div>
+    <div class="two">
+      <div class="card dark">
+        <div class="t">Обязательно</div>
+        <ul>
+          <li>Трек в хорошем качестве: WAV или MP3 320 kbps</li>
+          <li>Пара абзацев о бренде: что продаёте, кому, чем отличаетесь</li>
+          <li>Логотип, фирменные цвета и шрифты</li>
+          <li>Фото продукта с 2–3 ракурсов, если он должен быть в кадре</li>
+          <li>Контакт, который утверждает этапы</li>
+        </ul>
+      </div>
+      <div class="card soft">
+        <div class="t">Полезно, но не обязательно</div>
+        <ul>
+          <li>Клипы и ролики, которые вам нравятся, и чем именно</li>
+          <li>Где будет клип: соцсети, сайт, реклама, экраны. От этого зависят формат и темп</li>
+          <li>Что нельзя показывать и говорить о бренде</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sec-h mt"><h2>Реквизиты</h2></div>
+    <table class="req">
+      <tr><td>Исполнитель</td><td>Студия AI в кадре · ИП Тальян Антон Дмитриевич</td></tr>
+      <tr><td>ИНН / ОГРНИП</td><td>774349397920 · 325774600866130</td></tr>
+      <tr><td>Расчётный счёт</td><td>40802810700009144244, АО «ТИНЬКОФФ БАНК», г. Москва</td></tr>
+      <tr><td>Корр. счёт / БИК</td><td>30101810145250000974 · 044525974</td></tr>
+      <tr><td>Контакты</td><td>+7 (968) 589-55-16 (телефон / Telegram) · aivkadre@yandex.ru · aivkadre.ru</td></tr>
+    </table>
+
+    <div class="final">
+      <div class="dot"></div>
+      <p><b>Готовы стартовать.</b> Руслан, напишите, какой вариант вам ближе. Пришлём договор и счёт на аванс. Сценарий со стилевыми кадрами покажем через 4–5 рабочих дней после старта.</p>
+    </div>
+  </div>
+  <div class="foot"><span>AI в кадре — студия ИИ-видеопродакшна · Москва</span><span>05 / 05</span></div>
+</section>
+
+</body>
+</html>
