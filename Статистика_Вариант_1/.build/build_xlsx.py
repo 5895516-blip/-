@@ -61,92 +61,66 @@ def anton():
     t2, got2, _ = select(table, seq[nxt:], lambda x: x % 10, 3, 10)
     assert not any(s[3] for s in t2)
     vals = D.get(who, {}).get('values')
-    f = Font(name='Times New Roman', size=12)
-    wb = Workbook()
+    wb = Workbook(); ws = wb.active
 
-    ws = wb.active; ws.title = 'Задача 1'; put = styler(ws, f)
-    put('A1', 'Вариант 1. Тальян Антон')
-    put('A2', 'Задача 1. Отбор 10% предприятий из 100 методом прямой реализации (простая случайная выборка без возвращения)')
-    put('A4', 'N ='); put('B4', 100)
-    put('A5', 'доля отбора'); put('B5', 0.1, fmt='0%')
-    put('A6', 'n ='); put('B6', '=B4*B5')
-    put('A8', 'Таблица случайных чисел')
-    put('A9', '', box=True)
-    for c in range(7): put(f'{L(c+2)}9', c + 1, box=True)
+    def put(ref, val, fmt=None):
+        ws[ref] = val
+        if fmt: ws[ref].number_format = fmt
+
+    put('A1', 'Тальян Антон, вариант 1')
+    put('A3', 'Задача 1')
+    put('A4', 'N'); put('B4', 100)
+    put('A5', 'n'); put('B5', '=B4*10%')
+    for c in range(7): put(f'{L(c+1)}7', c + 1)
     for r in range(10):
-        put(f'A{10+r}', r + 1, box=True)
-        for c in range(7): put(f'{L(c+2)}{10+r}', table[r][c], box=True, fmt='0000')
-    put('A21', 'Начальный столбец (выбран случайно от 1 до 7):'); put('G21', start)
-    put('A22', 'Читаем столбец сверху вниз, когда он кончается - следующий столбец. Берем две последние цифры числа (00 = 100), повторы пропускаем.')
-    hdr = ['№ шага', 'Случайное число', 'Две последние цифры', 'Результат', 'В выборку']
-    for i, h in enumerate(hdr): put(f'{L(i+1)}24', h, box=True)
-    first = 25
+        for c in range(7): put(f'{L(c+1)}{8+r}', table[r][c], '0000')
+    put('A19', 'старт'); put('B19', start)
+    put('A21', 'число'); put('B21', 'номер'); put('C21', 'повтор'); put('D21', 'в выборку')
+    first = 22
     for k, (r, c, n, rep) in enumerate(t1):
         row = first + k
-        put(f'A{row}', k + 1, box=True)
-        put(f'B{row}', f'={L(c+2)}{10+r}', box=True, fmt='0000')
-        put(f'C{row}', f'=IF(MOD(B{row},100)=0,100,MOD(B{row},100))', box=True)
-        put(f'D{row}', f'=IF(COUNTIF(C${first-1}:C{row-1},C{row})>0,"повтор, пропуск","отобрано")', box=True)
-        put(f'E{row}', f'=IF(D{row}="отобрано",C{row},"")', box=True)
+        put(f'A{row}', f'={L(c+1)}{8+r}', '0000')
+        put(f'B{row}', f'=IF(MOD(A{row},100)=0,100,MOD(A{row},100))')
+        put(f'C{row}', f'=IF(COUNTIF(B${first-1}:B{row-1},B{row})>0,"повтор","")')
+        put(f'D{row}', f'=IF(C{row}="",B{row},"")')
     last = first + len(t1) - 1
-    s0 = last + 2
-    put(f'A{s0}', 'Выборка (по возрастанию):')
-    put(f'A{s0+1}', '№ п/п', box=True); put(f'B{s0+1}', '№ предприятия', box=True)
-    for k in range(10):
-        put(f'A{s0+2+k}', k + 1, box=True)
-        put(f'B{s0+2+k}', f'=SMALL($E${first}:$E${last},A{s0+2+k})', box=True)
-    put(f'A{s0+13}', 'Отобрано предприятий:'); put(f'C{s0+13}', f'=COUNT(B{s0+2}:B{s0+11})')
-    put(f'A{s0+14}', 'Доля отбора:'); put(f'C{s0+14}', f'=C{s0+13}/B4', fmt='0%')
-    ws.column_dimensions['A'].width = 13
-    for col in 'BCDE': ws.column_dimensions[col].width = 16
-    for col in 'FGH': ws.column_dimensions[col].width = 9
-    sorted_ref = lambda k: f"='Задача 1'!B{s0+2+k}"
+    s = last + 2
+    put(f'A{s}', 'выборка')
+    for k in range(10): put(f'{L(k+2)}{s}', f'=SMALL($D${first}:$D${last},{k+1})')
 
-    ws = wb.create_sheet('Задача 2'); put = styler(ws, f)
-    put('A1', 'Задача 2')
-    put('A2', 'Фамилия на букву Т - колонка 14 табл. 1 приложения 1')
-    put('A3', 'Генеральная совокупность - 10 предприятий из задачи 1 (N = 10), отбираем n = 3 без повторения')
-    for i, h in enumerate(['№ п/п', '№ предприятия', 'Значение (колонка 14)']): put(f'{L(i+1)}5', h, box=True)
+    z = s + 3
+    put(f'A{z}', 'Задача 2 (колонка 14)')
+    put(f'A{z+1}', 'предприятие'); put(f'A{z+2}', 'значение')
     for k in range(10):
-        put(f'A{6+k}', k + 1, box=True)
-        put(f'B{6+k}', sorted_ref(k), box=True)
-        n = sorted(got1)[k]
-        put(f'C{6+k}', vals[str(n)] if vals else None, box=True)
-    put('D6', '<- значения из приложения 1')
-    put('B16', 'Сумма', box=True); put('C16', '=SUM(C6:C15)', box=True)
-    put('B17', 'Хср', box=True); put('C17', '=C16/10', box=True, fmt='0.00')
-    put('A19', 'Количество сочетаний C(10;3) ='); put('E19', '=COMBIN(10,3)')
-    put('A20', 'то же через факториалы 10!/(3!*7!) ='); put('E20', '=FACT(10)/(FACT(3)*FACT(7))')
-    r0, c0 = t2[0][0], t2[0][1]
-    put('A22', f'Отбор 3 предприятий: продолжаем таблицу случайных чисел ({c0+1} столбец, {r0+1} строка), последняя цифра = № п/п (0 = 10)')
-    for i, h in enumerate(['Случайное число', 'Последняя цифра', '№ п/п', '№ предприятия', 'Значение']): put(f'{L(i+1)}23', h, box=True)
+        put(f'{L(k+2)}{z+1}', f'={L(k+2)}{s}')
+        put(f'{L(k+2)}{z+2}', vals[str(sorted(got1)[k])] if vals else None)
+    E = f'$B${z+1}:$K${z+1}'; V = f'$B${z+2}:$K${z+2}'
+    put(f'A{z+4}', 'сумма'); put(f'B{z+4}', f'=SUM(B{z+2}:K{z+2})')
+    put(f'A{z+5}', 'Хср'); put(f'B{z+5}', f'=B{z+4}/10', '0.00')
+    put(f'A{z+6}', 'сочетаний'); put(f'B{z+6}', '=COMBIN(10,3)')
+    h = z + 8
+    for i, t in enumerate(['число', 'цифра', '№ п/п', 'предприятие', 'значение']): put(f'{L(i+1)}{h}', t)
     for k, (r, c, n, rep) in enumerate(t2):
-        row = 24 + k
-        put(f'A{row}', f"='Задача 1'!{L(c+2)}{10+r}", box=True, fmt='0000')
-        put(f'B{row}', f'=MOD(A{row},10)', box=True)
-        put(f'C{row}', f'=IF(B{row}=0,10,B{row})', box=True)
-        put(f'D{row}', f'=INDEX($B$6:$B$15,C{row})', box=True)
-        put(f'E{row}', f'=INDEX($C$6:$C$15,C{row})', box=True)
-    put('D27', 'Сумма', box=True); put('E27', '=SUM(E24:E26)', box=True)
-    put('D28', 'хср', box=True); put('E28', '=E27/3', box=True, fmt='0.00')
-    put('D29', 'хср - Хср', box=True); put('E29', '=E28-C17', box=True, fmt='0.00')
-    put('A31', 'Проверка на несмещенность (все 120 выборок в столбцах H:M)')
-    put('A32', 'Среднее из 120 выборочных средних M(хср) ='); put('E32', '=AVERAGE(M3:M122)', fmt='0.00')
-    put('A33', 'Генеральная средняя Хср ='); put('E33', '=C17', fmt='0.00')
-    put('A34', 'Каждое предприятие входит в C(9;2) ='); put('E34', '=COMBIN(9,2)')
-    put('A35', 'Средние выборок: от'); put('C35', '=MIN(M3:M122)', fmt='0.00'); put('D35', 'до', center=True); put('E35', '=MAX(M3:M122)', fmt='0.00')
-    put('A36', 'Вывод:')
-    put('B36', '=IF(COUNT(C6:C15)<10,"нужно вписать значения из приложения 1",IF(ABS(E32-E33)<0.000001,"M(хср) = Хср, значит выборочная средняя - несмещенная оценка","не совпадает"))')
-    put('H1', 'Все возможные выборки по 3 предприятия из 10')
-    for i, h in enumerate(['№', '№ п/п 1', '№ п/п 2', '№ п/п 3', 'Предприятия', 'Средняя']): put(f'{L(8+i)}2', h, box=True)
-    for k, (i, j, m) in enumerate(combos):
-        row = 3 + k
-        put(f'H{row}', k + 1, box=True); put(f'I{row}', i, box=True); put(f'J{row}', j, box=True); put(f'K{row}', m, box=True)
-        put(f'L{row}', f'=INDEX($B$6:$B$15,I{row})&", "&INDEX($B$6:$B$15,J{row})&", "&INDEX($B$6:$B$15,K{row})', box=True)
-        put(f'M{row}', f'=(INDEX($C$6:$C$15,I{row})+INDEX($C$6:$C$15,J{row})+INDEX($C$6:$C$15,K{row}))/3', box=True, fmt='0.00')
-    for col, w in zip('ABCDEFGHIJKLM', [16, 16, 16, 16, 12, 4, 4, 6, 9, 9, 9, 16, 10]):
-        ws.column_dimensions[col].width = w
-    fit(wb); wb.save(f'{out_dir}/Тальян_Антон_Вариант_1.xlsx')
+        row = h + 1 + k
+        put(f'A{row}', f'={L(c+1)}{8+r}', '0000')
+        put(f'B{row}', f'=MOD(A{row},10)')
+        put(f'C{row}', f'=IF(B{row}=0,10,B{row})')
+        put(f'D{row}', f'=INDEX({E},C{row})')
+        put(f'E{row}', f'=INDEX({V},C{row})')
+    m = h + 5
+    put(f'A{m}', 'хср'); put(f'B{m}', f'=SUM(E{h+1}:E{h+3})/3', '0.00')
+    put(f'A{m+1}', 'хср - Хср'); put(f'B{m+1}', f'=B{m}-B{z+5}', '0.00')
+    put(f'A{m+3}', 'M(хср)'); put(f'B{m+3}', '=AVERAGE(N2:N121)', '0.00')
+    put(f'A{m+4}', '=IF(COUNT(B{0}:K{0})<10,"впиши значения из приложения 1",IF(ABS(B{1}-B{2})<0.000001,"M(хср) = Хср, оценка несмещенная","не равны"))'.format(z+2, m+3, z+5))
+
+    put('M1', 'выборки'); put('N1', 'средняя')
+    for k, (i, j, q) in enumerate(combos):
+        row = 2 + k
+        put(f'M{row}', f'=INDEX({E},{i})&", "&INDEX({E},{j})&", "&INDEX({E},{q})')
+        put(f'N{row}', f'=(INDEX({V},{i})+INDEX({V},{j})+INDEX({V},{q}))/3', '0.00')
+    ws.column_dimensions['A'].width = 12
+    ws.column_dimensions['M'].width = 11
+    fit(wb); wb.save(f'{out_dir}/Тальян первый вариант.xlsx')
 
 # ================= Вершков Максим =================
 def maxim():
