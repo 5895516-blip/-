@@ -243,7 +243,7 @@ def cam(f):
     p = p + amp * np.array([0.0012 * np.sin(23 * tt), 0.0018 * np.sin(31 * tt + 1.3) + 0.0008 * np.sin(57 * tt), 0.0])
     return p, tgt, foc
 
-FLARE0 = 104                                           # anamorphic flare grows into a full-frame wipe by frame 120
+FLARE0 = 104                                           # passing streetlight flare, peaks at frame 116 (cut point)
 
 ys, xs = np.mgrid[0:H, 0:W]
 SAMPLES = ((-0.25, -0.25), (0.25, -0.25), (-0.25, 0.25), (0.25, 0.25))
@@ -260,10 +260,14 @@ for f in FRAMES:
         acc += shade(groups, np.broadcast_to(p, d.shape).copy(), d, t)
     img = (acc / len(SAMPLES)).reshape(H, W, 3)
     if f >= FLARE0:
-        a = (f - FLARE0) / (120 - FLARE0)
-        yc = 0.40 * H; sig = (0.012 + 0.9 * a ** 2) * H
-        streak = np.exp(-((ys - yc) / sig) ** 2) * (0.35 + 0.65 * np.clip((xs / W) * 1.5 - 0.5 + a * 1.5, 0, 1))
-        img = img + streak[..., None] * np.array([0.75, 0.88, 1.0]) * (0.4 + 3.0 * a ** 1.5)
+        # a streetlight passes over the car: its anamorphic streak crosses the frame and peaks at frame 116
+        # (the cut point); the full white flash is added in the edit, not baked into the shot
+        a = (f - FLARE0) / (116 - FLARE0)
+        k = np.clip(a, 0, 1) ** 1.5 if f <= 116 else 1.0 - 0.18 * (f - 116)
+        yc = (0.22 + 0.10 * min(a, 1.2)) * H
+        line = np.exp(-((ys - yc) / (0.006 * H)) ** 2)
+        glow = np.exp(-((ys - yc) / (0.07 * H)) ** 2) * np.exp(-((xs - (0.85 - 0.25 * a) * W) / (0.35 * W)) ** 2)
+        img = img + (line * 1.4 + glow * 0.9)[..., None] * np.array([0.75, 0.88, 1.0]) * k
     img = np.clip(img, 0, 1) ** (1 / 2.2)
     Image.fromarray((img * 255).astype(np.uint8)).save(f"{OUT}/f{f:04d}.png")
     print(f, flush=True)

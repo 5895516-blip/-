@@ -30,7 +30,7 @@
 | 0.0–0.8 с | 1–20 | **стоит**, кадр = последний кадр сцены 1. На ~0.5 с по лицу проходит тёплый фонарь, на ~0.7 с глаза открываются |
 | 0.8–3.6 с | 20–86 | плавный отъезд от глаз с лёгкой дугой вправо от героя (со стороны пассажира), объектив расширяется. Открываются лицо, плечи, руки на руле, окно с городом |
 | 3.6–4.3 с | 86–104 | стоит на среднем плане 3/4, лёгкая дорожная вибрация. Он понимает, где он, и улыбается |
-| 4.3–5.0 с | 104–120 | **переход:** анаморфный блик фонаря горизонтальной полосой заливает кадр до белого. Отсюда начнётся сцена 3 |
+| 4.3–5.0 с | 104–120 | машина проходит под ярким фонарём: горизонтальная полоса анаморфного блика проходит по кадру, пик на 4.8 с (кадр 116) — **точка склейки** со сценой 3 |
 
 - Оптика: начинаем ~40° по диагонали (≈58 мм, ровно как конец сцены 1), заканчиваем ~68° (≈32 мм).
 - Финальный ракурс 3/4 из салона с пассажирской стороны **становится эталоном для сцен 5 и 6**. Там ракурс не меняется, а машина вокруг становится BMW, потом Lamborghini.
@@ -47,7 +47,8 @@
 
 ## 6. Связка со сценой 3
 
-Сцена 2 кончается белым анаморфным бликом во весь кадр. **Сцена 3** начинается с этого же блика: он сходит с кадра, и мы снаружи, сбоку, камера едет рядом с машиной, по кузову скользит отражение того же фонаря.
+Сцена 2 кончается полосой блика фонаря (пик на 4.8 с). **Сцена 3** начинается с яркого отражения того же фонаря, скользящего по капоту.
+**Белая вспышка делается в монтаже**, не в генерации: на стык кладём белую вспышку 4–6 кадров + оверлей блика (CapCut / Premiere / DaVinci). Так надёжно на 100% и не нужно перегенерировать из-за неточного тайминга.
 **Направление езды в сцене 3:** машина едет слева направо по кадру.
 
 ## 7. Производство
@@ -58,6 +59,7 @@
 | 2 | Финальный кадр 3/4 в салоне в фотореал: кадр превиза №100 + лицо героя | 1 картинка |
 | 3 | Seedance 2.5 omni_reference: тест 480p | 1 генерация |
 | 4 | Финал 1080p | 1 генерация |
+| 5 | Монтаж: белая вспышка 4–6 кадров на стыке сцен 2→3 | 0 |
 
 ---
 
@@ -80,7 +82,7 @@ ACTION: at 0.5 seconds a warm streetlight band slides across his closed eyes; at
 
 LIGHT: the opening holds the cool frame-left light of @image_1. Then the light of the moving city takes over: streetlights and neon signs sweep across his face from front to back roughly every 0.75 seconds, alternating warm sodium amber, magenta neon and cyan. A soft cool white glow from the instrument cluster lights his chin and hands from below. The cabin stays dark between the light sweeps.
 
-END TRANSITION (4.3–5.0 s): a bright streetlight flares straight into the lens; its horizontal blue-white anamorphic streak spreads across the frame and fills it edge to edge, ending on a full white-blue frame.
+END (4.3–5.0 s): the car passes under a bright streetlight; a thin horizontal blue-white anamorphic streak flare sweeps across the frame at his eye level and peaks at 4.8 seconds, then begins to fade. The frame never goes fully white.
 
 AUDIO: smooth deep V8 engine purr, tyres hissing on asphalt, faint wind. No music, no voice.
 
@@ -89,7 +91,7 @@ STYLE: photorealistic cinema, large-format digital cinema camera with anamorphic
 
 ## 9. Промпт финального кадра — Nano Banana Pro (редактирование)
 
-Загрузка: `@image_1` = `previs_scene02_land.png` (кадр превиза №100), `@image_2` = лицо героя.
+Загрузка: `@image_1` = `previs_scene02_land.png` (кадр превиза №100), `@image_2` = эталон лица героя (`../hero/HERO.md`, job `decbdf26-…`).
 
 ```text
 Rebuild @image_1 (a grey 3D blockout) as a photorealistic cinematic film still. Keep its exact camera position, angle and framing and the position of the man, his arms, the steering wheel and the window; ignore the grey materials. @image_2 defines his face, 100% as in the reference.
