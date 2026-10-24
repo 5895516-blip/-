@@ -135,14 +135,28 @@ def shade(o, d):
 SW, SH = 20.25, 36.0   # vertical full-frame crop (mm)
 P0 = np.array([0.45, 1.30, 1.50]); T0 = np.array([-0.95, 0.92, -0.95]); F0 = 30.0
 P1 = EYES + np.array([0.0, 0.30, 0.055]); T1 = EYES + np.array([0, 0, -0.006]); F1 = 58.0
-PM = np.array([-0.20, 1.50, 0.45])  # bezier control: stays high mid-move, then settles overhead
 
-def ease(x): return x * x * x * (x * (6 * x - 15) + 10)   # smootherstep: soft start, soft landing
+# One continuous move, no settle: a curved crane over the bed that joins the final viewing axis,
+# then a straight push down that axis, so the last stretch only gets closer and never re-aims.
+AXIS = n(P1 - T1)
+A = P1 + AXIS * 0.40                      # point where the path joins the final axis
+C1 = P0 + np.array([-0.60, 0.05, -1.00])
+C2 = A + AXIS * 0.20
+_u = np.linspace(0, 1, 4000)[:, None]
+_curve = (1 - _u) ** 3 * P0 + 3 * (1 - _u) ** 2 * _u * C1 + 3 * (1 - _u) * _u ** 2 * C2 + _u ** 3 * A
+_line = A + (P1 - A) * np.linspace(0, 1, 800)[1:, None]
+PATH = np.vstack([_curve, _line])
+ARC = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(PATH, axis=0), axis=1))]); ARC /= ARC[-1]
+JOIN = ARC[len(_curve) - 1]               # arc fraction where the straight push begins
+
+LAND = 108                                # camera lands here, frames 108-120 are locked off
+def ease(x): return x * x * x * (x * (6 * x - 15) + 10)
 def cam(f):
-    # 1-12 barely creeping (trim handle), 12-100 push-in, 100-120 settle on the eyes
-    s = 0.015 * np.clip((f - 1) / 11.0, 0, 1) + 0.975 * ease(np.clip((f - 12) / 88.0, 0, 1)) + 0.010 * ease(np.clip((f - 100) / 20.0, 0, 1))
-    p = (1 - s) ** 2 * P0 + 2 * (1 - s) * s * PM + s ** 2 * P1
-    tgt = T0 + (T1 - T0) * min(1.0, s ** 0.75)
+    u = np.clip((f - 1) / (LAND - 1), 0, 1)
+    s = ease(u ** 1.25)                   # slow start, decisive landing, zero speed exactly at LAND
+    p = np.array([np.interp(s, ARC, PATH[:, k]) for k in range(3)])
+    w = ease(np.clip(s / JOIN, 0, 1))     # aim is fully on the eyes by the time the straight push starts
+    tgt = T0 + (T1 - T0) * w
     foc = F0 + (F1 - F0) * s
     return p, tgt, foc
 

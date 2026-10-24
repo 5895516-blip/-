@@ -20,16 +20,19 @@
 
 ## 2. Камера
 
+**Одно непрерывное движение без поправок в конце:**
+
 | Время | Кадры (24 fps) | Что делает камера |
 |---|---|---|
-| 0.0–0.5 с | 1–12 | почти стоит (запас под обрезку) |
-| 0.5–4.2 с | 12–100 | плавный наезд над кроватью: камера чуть поднимается и наклоняется вниз |
-| 4.2–5.0 с | 100–120 | зависает **точно над лицом**, сверху, на глазах крупно |
+| 0.0–1.0 с | 1–24 | мягкий разгон (запас под обрезку) |
+| 1.0–3.5 с | 24–84 | пролёт над кроватью: камера чуть поднимается и наклоняется вниз, к 84-му кадру уже смотрит точно на глаза |
+| 3.5–4.5 с | 84–108 | **прямой «прилёт» по одной оси** на глаза: только приближение, без поворота и доворота |
+| 4.5–5.0 с | 108–120 | **намертво стоит** в финальной точке, ни миллиметра дрейфа (чистая точка склейки) |
 
 - **Старт:** средне-общий план из угла у изножья, камера на высоте груди стоящего человека (~1.3 м). Окно в левой верхней части кадра, кровать идёт диагональю.
 - **Финал:** суперкрупно оба закрытых глаза с бровями. **Линия глаз строго горизонтальная**, глаза чуть выше центра кадра.
 - Оптика: начинаем ~70° по диагонали (≈30 мм), заканчиваем ~40° (≈58 мм). Получается наезд с лёгким «дотягом».
-- Движение: без тряски, мягкий разгон и мягкая посадка (кривая smootherstep).
+- Движение: без тряски, мягкий разгон и решительная посадка. Финальный ракурс устанавливается заранее, последний отрезок — чистое приближение, после касания камера не доворачивает и не доезжает.
 
 ## 3. Свет — «НОЧЬ»
 
@@ -90,9 +93,9 @@ CONTINUITY LOCK: exactly one person in the room. Exactly one black smartphone li
 
 FIRST FRAME: medium-wide view from the corner near the foot of the bed, camera at standing chest height, looking toward the head of the bed and the window. The young man lies on his back, head on the pillow, face up, blanket pulled to his chest, one arm resting on the blanket. The window fills the upper-left of the frame; the bed runs diagonally from lower right toward the window.
 
-CAMERA: one slow, perfectly smooth dolly push-in exactly as in @video_1. It eases in, glides over the bed while gently rising and tilting down, and settles directly above his face looking straight down, landing in an extreme close-up of both closed eyes and eyebrows: eye line perfectly horizontal, eyes centred slightly above the middle of the frame. The final second holds almost still with a barely perceptible drift. Field of view starts around 70° diagonal and narrows to about 40° by the landing. No shake, no handheld, no cuts.
+CAMERA: one single continuous, perfectly smooth move exactly as in @video_1. It eases in, glides over the bed while gently rising and tilting down until it looks straight down at his face; from that moment the aim is locked and the camera only drops straight down toward his eyes along one axis, with no further rotation. It lands decisively in an extreme close-up of both closed eyes and eyebrows: eye line perfectly horizontal, eyes centred slightly above the middle of the frame. On landing the camera stops dead and stays locked off for the last half second: no settle, no re-framing, no drift. Field of view starts around 70° diagonal and narrows to about 40° by the landing. No shake, no handheld, no cuts.
 
-ACTION: he is deeply asleep; slow breathing gently lifts the blanket. In the final 1.5 seconds, as the camera settles, REM sleep begins: his eyeballs flick side to side under the closed lids, the eyelids flutter, a faint twitch at the brow. His eyes stay closed until the last frame.
+ACTION: he is deeply asleep; slow breathing gently lifts the blanket. In the final 1.5 seconds, as the camera arrives, REM sleep begins: his eyeballs flick side to side under the closed lids, the eyelids flutter, a faint twitch at the brow. His eyes stay closed until the last frame.
 
 LIGHT: no lamps are on. Cold blue moonlight and city skyglow through the window are the key, falling from frame-left across the pillow and his face and leaving the right side of his face in soft shadow; his closed eyes stay readable. Faint warm sodium-orange streetlight bounce from the courtyard below glows on the ceiling. Between 1 and 2.5 seconds, the headlights of a car passing in the courtyard sweep slowly across the ceiling and wall from left to right. Out-of-focus city lights twinkle through the window glass.
 
