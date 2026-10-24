@@ -61,65 +61,67 @@ def anton():
     t2, got2, _ = select(table, seq[nxt:], lambda x: x % 10, 3, 10)
     assert not any(s[3] for s in t2)
     vals = D.get(who, {}).get('values')
-    wb = Workbook(); ws = wb.active
+    wb = Workbook()
 
-    def put(ref, val, fmt=None):
+    def put(ws, ref, val, fmt=None):
         ws[ref] = val
         if fmt: ws[ref].number_format = fmt
 
-    put('A1', 'Тальян Антон, вариант 1')
-    put('A3', 'Задача 1')
-    put('A4', 'N'); put('B4', 100)
-    put('A5', 'n'); put('B5', '=B4*10%')
-    for c in range(7): put(f'{L(c+1)}7', c + 1)
+    ws = wb.active; ws.title = 'Задача 1'
+    put(ws, 'A1', 'Тальян Антон, вариант 1')
+    put(ws, 'A3', 'Задача 1')
+    put(ws, 'A4', 'N'); put(ws, 'B4', 100)
+    put(ws, 'A5', 'n'); put(ws, 'B5', '=B4*10%')
+    for c in range(7): put(ws, f'{L(c+1)}7', c + 1)
     for r in range(10):
-        for c in range(7): put(f'{L(c+1)}{8+r}', table[r][c], '0000')
-    put('A19', 'старт'); put('B19', start)
-    put('A21', 'число'); put('B21', 'номер'); put('C21', 'повтор'); put('D21', 'в выборку')
+        for c in range(7): put(ws, f'{L(c+1)}{8+r}', table[r][c], '0000')
+    put(ws, 'A19', 'старт'); put(ws, 'B19', start)
+    put(ws, 'A21', 'число'); put(ws, 'B21', 'номер'); put(ws, 'C21', 'повтор'); put(ws, 'D21', 'в выборку')
     first = 22
     for k, (r, c, n, rep) in enumerate(t1):
         row = first + k
-        put(f'A{row}', f'={L(c+1)}{8+r}', '0000')
-        put(f'B{row}', f'=IF(MOD(A{row},100)=0,100,MOD(A{row},100))')
-        put(f'C{row}', f'=IF(COUNTIF(B${first-1}:B{row-1},B{row})>0,"повтор","")')
-        put(f'D{row}', f'=IF(C{row}="",B{row},"")')
+        put(ws, f'A{row}', f'={L(c+1)}{8+r}', '0000')
+        put(ws, f'B{row}', f'=IF(MOD(A{row},100)=0,100,MOD(A{row},100))')
+        put(ws, f'C{row}', f'=IF(COUNTIF(B${first-1}:B{row-1},B{row})>0,"повтор","")')
+        put(ws, f'D{row}', f'=IF(C{row}="",B{row},"")')
     last = first + len(t1) - 1
     s = last + 2
-    put(f'A{s}', 'выборка')
-    for k in range(10): put(f'{L(k+2)}{s}', f'=SMALL($D${first}:$D${last},{k+1})')
+    put(ws, f'A{s}', 'выборка')
+    for k in range(10): put(ws, f'{L(k+2)}{s}', f'=SMALL($D${first}:$D${last},{k+1})')
+    ws.column_dimensions['A'].width = 12
 
-    z = s + 3
-    put(f'A{z}', 'Задача 2 (колонка 14)')
-    put(f'A{z+1}', 'предприятие'); put(f'A{z+2}', 'значение')
+    ws2 = wb.create_sheet('Задача 2'); ws = ws2
+    put(ws, 'A1', 'Задача 2')
+    put(ws, 'A2', 'колонка 14 - ' + (D.get(who, {}).get('indicator') or ''))
+    put(ws, 'A4', 'предприятие'); put(ws, 'A5', 'значение')
     for k in range(10):
-        put(f'{L(k+2)}{z+1}', f'={L(k+2)}{s}')
-        put(f'{L(k+2)}{z+2}', vals[str(sorted(got1)[k])] if vals else None)
-    E = f'$B${z+1}:$K${z+1}'; V = f'$B${z+2}:$K${z+2}'
-    put(f'A{z+4}', 'сумма'); put(f'B{z+4}', f'=SUM(B{z+2}:K{z+2})')
-    put(f'A{z+5}', 'Хср'); put(f'B{z+5}', f'=B{z+4}/10', '0.00')
-    put(f'A{z+6}', 'сочетаний'); put(f'B{z+6}', '=COMBIN(10,3)')
-    h = z + 8
-    for i, t in enumerate(['число', 'цифра', '№ п/п', 'предприятие', 'значение']): put(f'{L(i+1)}{h}', t)
+        put(ws, f'{L(k+2)}4', f"='Задача 1'!{L(k+2)}{s}")
+        put(ws, f'{L(k+2)}5', vals[str(sorted(got1)[k])] if vals else None)
+    E = '$B$4:$K$4'; V = '$B$5:$K$5'
+    put(ws, 'A7', 'сумма'); put(ws, 'B7', '=SUM(B5:K5)')
+    put(ws, 'A8', 'Хср'); put(ws, 'B8', '=B7/10', '0.000')
+    put(ws, 'A9', 'сочетаний'); put(ws, 'B9', '=COMBIN(10,3)')
+    h = 11
+    for i, t in enumerate(['число', 'цифра', '№ п/п', 'предприятие', 'значение']): put(ws, f'{L(i+1)}{h}', t)
     for k, (r, c, n, rep) in enumerate(t2):
         row = h + 1 + k
-        put(f'A{row}', f'={L(c+1)}{8+r}', '0000')
-        put(f'B{row}', f'=MOD(A{row},10)')
-        put(f'C{row}', f'=IF(B{row}=0,10,B{row})')
-        put(f'D{row}', f'=INDEX({E},C{row})')
-        put(f'E{row}', f'=INDEX({V},C{row})')
+        put(ws, f'A{row}', f"='Задача 1'!{L(c+1)}{8+r}", '0000')
+        put(ws, f'B{row}', f'=MOD(A{row},10)')
+        put(ws, f'C{row}', f'=IF(B{row}=0,10,B{row})')
+        put(ws, f'D{row}', f'=INDEX({E},C{row})')
+        put(ws, f'E{row}', f'=INDEX({V},C{row})')
     m = h + 5
-    put(f'A{m}', 'хср'); put(f'B{m}', f'=SUM(E{h+1}:E{h+3})/3', '0.00')
-    put(f'A{m+1}', 'хср - Хср'); put(f'B{m+1}', f'=B{m}-B{z+5}', '0.00')
-    put(f'A{m+3}', 'M(хср)'); put(f'B{m+3}', '=AVERAGE(N2:N121)', '0.00')
-    put(f'A{m+4}', '=IF(COUNT(B{0}:K{0})<10,"впиши значения из приложения 1",IF(ABS(B{1}-B{2})<0.000001,"M(хср) = Хср, оценка несмещенная","не равны"))'.format(z+2, m+3, z+5))
-
-    put('M1', 'выборки'); put('N1', 'средняя')
+    put(ws, f'A{m}', 'хср'); put(ws, f'B{m}', f'=SUM(E{h+1}:E{h+3})/3', '0.000')
+    put(ws, f'A{m+1}', 'хср - Хср'); put(ws, f'B{m+1}', f'=B{m}-B8', '0.000')
+    put(ws, f'A{m+3}', 'M(хср)'); put(ws, f'B{m+3}', '=AVERAGE(N2:N121)', '0.000')
+    put(ws, f'A{m+4}', f'=IF(COUNT(B5:K5)<10,"впиши значения из приложения 1",IF(ABS(B{m+3}-B8)<0.000001,"M(хср) = Хср, оценка несмещенная","не равны"))')
+    put(ws, 'M1', 'выборки'); put(ws, 'N1', 'средняя')
     for k, (i, j, q) in enumerate(combos):
         row = 2 + k
-        put(f'M{row}', f'=INDEX({E},{i})&", "&INDEX({E},{j})&", "&INDEX({E},{q})')
-        put(f'N{row}', f'=(INDEX({V},{i})+INDEX({V},{j})+INDEX({V},{q}))/3', '0.00')
+        put(ws, f'M{row}', f'=INDEX({E},{i})&", "&INDEX({E},{j})&", "&INDEX({E},{q})')
+        put(ws, f'N{row}', f'=(INDEX({V},{i})+INDEX({V},{j})+INDEX({V},{q}))/3', '0.000')
     ws.column_dimensions['A'].width = 12
-    ws.column_dimensions['M'].width = 11
+    ws.column_dimensions['M'].width = 14
     fit(wb); wb.save(f'{out_dir}/Тальян первый вариант.xlsx')
 
 # ================= Вершков Максим =================
@@ -161,7 +163,7 @@ def maxim():
     for col in 'BCDEFGHIJK': ws.column_dimensions[col].width = 9
 
     ws = wb.create_sheet('Задача2'); put = styler(ws, f)
-    put('A1', 'Фамилия на В - колонка 2 табл. 1 приложения 1')
+    put('A1', 'Фамилия на В - колонка 2 табл. 1 приложения 1 (численность ППП, чел.)')
     put('A2', 'Из 10 предприятий задачи 1 случайно без повторения выбираем 3')
     put('A4', 'Количество сочетаний'); put('D4', '=COMBIN(10,3)')
     put('A6', '№', box=True); put('A7', 'x', box=True)

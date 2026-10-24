@@ -7,7 +7,8 @@ const R = JSON.parse(fs.readFileSync(randPath, 'utf8'));
 const D = dataPath && fs.existsSync(dataPath) ? JSON.parse(fs.readFileSync(dataPath, 'utf8')) : {};
 
 const pad4 = n => String(n).padStart(4, '0');
-const num = (x, d = 2) => {
+let DEC = 2;
+const num = (x, d = DEC) => {
   if (x === null || x === undefined) return '___';
   const r = Math.round(x * 10 ** d) / 10 ** d;
   return (Number.isInteger(r) ? String(r) : r.toFixed(d).replace(/0+$/, '')).replace('.', ',');
@@ -104,6 +105,7 @@ function save(children, file) {
 
 // ---------- Антон Тальян ----------
 function anton() {
+  DEC = 3;
   const S = solve('anton', true, x => x % 100, x => x % 10);
   const { p, table } = mk('Times New Roman', 28, { after: 0, line: 360 }, AlignmentType.LEFT);
   const blank = () => p('');
@@ -161,6 +163,7 @@ function anton() {
 
 // ---------- Максим Вершков ----------
 function maxim() {
+  DEC = 2;
   const S = solve('maxim', false, x => Math.floor(x / 100), x => Math.floor(x / 1000));
   const { p, table } = mk('Calibri', 24, { after: 120, line: 276 }, AlignmentType.JUSTIFIED);
   const out = [];
