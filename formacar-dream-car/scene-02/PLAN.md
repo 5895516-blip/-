@@ -52,36 +52,45 @@
 **Белая вспышка делается в монтаже**, не в генерации: на стык кладём белую вспышку 4–6 кадров + оверлей блика (CapCut / Premiere / DaVinci). Так надёжно на 100% и не нужно перегенерировать из-за неточного тайминга.
 **Направление езды в сцене 3:** машина едет слева направо по кадру.
 
-## 7. Производство
+## 7. Производство (цены проверены через Higgsfield)
 
-| Шаг | Что | Кредиты |
-|---|---|---|
-| 1 | Последний кадр сцены 1 → `@image_1` (вырезаем из готового видео) | 0 |
-| 2 | Финальный кадр 3/4 в салоне в фотореал: кадр превиза №100 + лицо героя | 1 картинка |
-| 3 | Seedance 2.5 omni_reference: тест 480p | 1 генерация |
-| 4 | Финал 1080p | 1 генерация |
-| 5 | Монтаж: белая вспышка 4–6 кадров на стыке сцен 2→3 | 0 |
+| Шаг | Что | Модель | Кредиты |
+|---|---|---|---|
+| 1 | Последний кадр финального видео сцены 1 → PNG → загрузить (это `@image_3`) | — | 0 |
+| 2 | Финальный кадр 3/4 в салоне в фотореал (это `@image_5`) | Seedream 5.0 Pro | 2.5 |
+| 3 | Видео — тест 480p без звука | Seedance 2.5 omni_reference | 15 |
+| 4 | Видео — финал 720p со звуком | Seedance 2.5 omni_reference | 35 |
+| 5 | Монтаж: белая вспышка 4–6 кадров на стыке 2→3 | — | 0 |
 
 ---
 
-## 8. Промпт видео — Seedance 2.5 (omni_reference)
+## 8. Видео — Seedance 2.5 (omni_reference), 9:16, 5 сек
 
-Загрузка: `@image_1` = последний кадр сцены 1, `@image_2` = фотореал финального кадра (шаг 2), `@video_1` = превиз `previs_scene02.mp4`.
+### Вложения и теги (порядок фиксированный, см. `../PIPELINE.md`)
+
+| Тег | Что прикрепить | ID | Роль в API | За что отвечает |
+|---|---|---|---|---|
+| `@image_1` | эталон лица героя v2 | `7550d525-9728-4d53-ba85-3cce6e54c172` | image_references #1 | лицо |
+| `@image_2` | разворот героя v2 | `5a0a9e98-7ded-4167-844f-0000549655b1` | image_references #2 | голова со всех сторон + футболка |
+| `@image_3` | последний кадр финала сцены 1 | *после шага 1* | image_references #3 | первый кадр (бесшовный стык) |
+| `@image_4` | салон Mercedes-AMG GT | `87291df2-f1a8-433d-8ad8-94553e99803a` | image_references #4 | дизайн салона |
+| `@image_5` | финальный кадр из шага 2 | *после шага 2* | image_references #5 | финальная композиция |
+| `@video_1` | `previs_scene02.mp4` | *после загрузки* | video_references #1 | движение камеры и тайминг |
 
 ```text
-GENERATION. One continuous shot that seamlessly continues the previous clip. @image_1 is the first-frame anchor: the film opens on exactly this extreme close-up of the young man's closed eyes, identical framing, light and skin. @image_2 is the final-frame anchor: it defines the car interior, his face, grey T-shirt and the landing composition. @video_1 is a grey-box camera blockout: copy only its camera path, speed curve and timing; ignore its grey shapes and flat materials.
+GENERATION. One continuous shot that seamlessly continues the previous clip. @image_3 is the first-frame anchor: the video opens on exactly this extreme close-up of the man's closed eyes, identical framing, light and skin. @image_1 defines his face and @image_2 shows the same man from every angle in his grey home T-shirt; he is 100% this person throughout. @image_4 defines the car interior: the black Mercedes-AMG GT 63 cabin with its AMG steering wheel, free-standing driver display, portrait central screen, round turbine air vents and black Nappa leather bucket seats. @image_5 is the final-frame anchor: the shot must arrive at exactly this three-quarter composition. @video_1 is a grey-box camera blockout: copy only its camera path, speed curve and timing; ignore its grey shapes and flat materials.
 
-LOCATION MAP: the driver's seat of a low black sports coupe driving at night along an empty city avenue. Black leather bucket seats, dark dashboard with cool white instrument glow, a round sports steering wheel. The driver's side window is behind him on the right of the frame; city buildings with lit windows and neon signs slide past outside it.
+LOCATION MAP: the driver's seat of the Mercedes-AMG GT from @image_4, driving at night along an empty city avenue. The driver's side window is behind him on the right of the frame; city buildings with lit windows and neon signs slide past outside it.
 
-CONTINUITY LOCK: exactly one person in the car — the same young man in the same plain grey home T-shirt. His hands stay on the steering wheel at ten and two. He looks forward at the road, never into the lens.
+CONTINUITY LOCK: exactly one person in the car — the man from @image_1 in the same plain grey home T-shirt. His hands stay on the steering wheel at ten and two. He looks forward at the road, never into the lens.
 
-FIRST FRAME: identical to @image_1 — his closed eyes and eyebrows fill the frame, eye line horizontal, eyes slightly above the centre, soft cool light from frame-left.
+FIRST FRAME: identical to @image_3 — his closed eyes and eyebrows fill the frame, eye line horizontal, eyes slightly above the centre, soft cool light from frame-left.
 
-CAMERA: for the first 0.8 seconds the camera holds perfectly still on the close-up. Then one smooth continuous pull-back with a gentle arc toward the passenger side, the lens widening as it goes, revealing his face, shoulders, hands on the wheel and the driver's window with the city behind him; it lands at 3.6 seconds in a three-quarter medium shot from the passenger side of the windshield at eye level, matching @image_2, and holds there with only a faint road vibration. No handheld shake, no cuts.
+CAMERA: for the first 0.8 seconds the camera holds perfectly still on the close-up. Then one smooth continuous pull-back with a gentle arc toward the passenger side, the lens widening as it goes, revealing his face, shoulders, hands on the wheel and the driver's window with the city behind him; it lands at 3.6 seconds in a three-quarter medium shot from the passenger side of the windshield at eye level, matching @image_5, and holds there with only a faint road vibration. No handheld shake, no cuts.
 
 ACTION: at 0.5 seconds a warm streetlight band slides across his closed eyes; at 0.7 seconds his eyes open slowly, pupils catching the passing lights. During the pull-back he takes in where he is; by 3.6 seconds a slow, disbelieving smile spreads across his face and grows into a wide grin. Small natural micro-movements from the car's motion, his body settled in the seat.
 
-LIGHT: the opening holds the cool frame-left light of @image_1. Then the light of the moving city takes over: streetlights and neon signs sweep across his face from front to back roughly every 0.75 seconds, alternating warm sodium amber, magenta neon and cyan. A soft cool white glow from the instrument cluster lights his chin and hands from below. The cabin stays dark between the light sweeps.
+LIGHT: the opening holds the cool frame-left light of @image_3. Then the light of the moving city takes over: streetlights and neon signs sweep across his face from front to back roughly every 0.75 seconds, alternating warm sodium amber, magenta neon and cyan. A soft cool white glow from the instrument display lights his chin and hands from below. The cabin stays dark between the light sweeps.
 
 END (4.3–5.0 s): the car passes under a bright streetlight; a thin horizontal blue-white anamorphic streak flare sweeps across the frame at his eye level and peaks at 4.8 seconds, then begins to fade. The frame never goes fully white.
 
@@ -90,14 +99,20 @@ AUDIO: smooth deep V8 engine purr, tyres hissing on asphalt, faint wind. No musi
 STYLE: photorealistic cinema, large-format digital cinema camera with anamorphic lens character — horizontal streak flares, oval bokeh of city lights. Low-key night exposure with readable face and eyes, rich neon palette of amber, magenta and cyan against deep blacks, fine 35mm film grain, natural skin with visible pores and stubble, real leather texture. Natural 180-degree shutter motion blur on the passing lights only; the face stays sharp.
 ```
 
-## 9. Промпт финального кадра — Nano Banana Pro (редактирование)
+**Проверка тегов:** `@image_1` (лицо), `@image_2` (ракурсы), `@image_3` (первый кадр, 3 раза), `@image_4` (салон, 2 раза), `@image_5` (финал, 2 раза), `@video_1` (камера). Других тегов нет.
 
-Загрузка: `@image_1` = `previs_scene02_land.png` (кадр превиза №100), `@image_2` = эталон лица героя (`../hero/HERO.md`, job `decbdf26-…`).
+## 9. Финальный кадр — Seedream 5.0 Pro (редактирование), 9:16, 2K
+
+Вложения по порядку:
+1. `previs_scene02_land.png` — кадр превиза №100;
+2. эталон лица `7550d525-…`;
+3. разворот `5a0a9e98-…`;
+4. салон Mercedes `87291df2-…`.
 
 ```text
-Rebuild @image_1 (a grey 3D blockout) as a photorealistic cinematic film still. Keep its exact camera position, angle and framing and the position of the man, his arms, the steering wheel and the window; ignore the grey materials. @image_2 defines his face, 100% as in the reference.
+Turn image 1, a grey 3D blockout of a car interior, into a photorealistic cinematic film still. Keep its exact camera position, angle and framing and the position of the man, his arms, the steering wheel and the window behind him. Image 2 and image 3 define the man: the same face, hair and stubble, in a heather-grey home T-shirt. Image 4 defines the car: the black Mercedes-AMG GT 63 cabin with its AMG steering wheel, driver display, round turbine vents and black Nappa leather bucket seats.
 
-Vertical 9:16. Night, inside a black Mercedes-AMG GT coupe driving through an empty city. A 25-year-old man with short dark hair and light stubble, in a plain grey home T-shirt, sits in a black leather bucket seat, hands on a round sports steering wheel at ten and two, looking forward at the road with a stunned, starting smile. Three-quarter view from the passenger side of the windshield at eye level. Behind him, through the driver's window, out-of-focus city buildings with warm lit windows and magenta and cyan neon signs.
+Night, the car driving along an empty city avenue. He sits in the driver's seat, hands on the steering wheel at ten and two, looking forward at the road past the camera with a stunned, starting smile; a three-quarter view from the passenger side of the windscreen at eye level. Behind him, through the driver's window, out-of-focus city buildings with warm lit windows and magenta and cyan neon signs. A magenta neon sweep falls across his face from frame-left, a cool white glow from the instrument display lights his chin and hands from below, and the rest of the cabin sits in deep black.
 
-Light: a magenta neon sweep falls across his face from frame-left, a cool white instrument glow from below lights his chin and hands, deep black cabin around him. Large-format cinema camera with anamorphic lens character, horizontal streak flares, oval bokeh, fine 35mm film grain, real leather and skin texture.
+Large-format cinema camera with an anamorphic lens: horizontal streak flares on the city lights, oval bokeh, fine 35mm film grain. Real leather grain, real skin with stubble and pores. Photographed, not rendered, with no grey clay surfaces left from the blockout.
 ```
