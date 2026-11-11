@@ -1,0 +1,16 @@
+# Автозапуск бота на сервере с Linux (без Docker).
+# 1) поправь путь в двух строках ниже, 2) sudo cp lessons-bot.service /etc/systemd/system/
+# 3) sudo systemctl enable --now lessons-bot
+[Unit]
+Description=Telegram lessons bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/lessons-bot
+ExecStart=/usr/bin/python3 /opt/lessons-bot/main.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
