@@ -12,7 +12,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app import App, extract_content  # noqa: E402
+from app import App, extract_content, render_text  # noqa: E402
 from config import Config  # noqa: E402
 from db import DB  # noqa: E402
 from fake_telegram import FakeTelegram  # noqa: E402
@@ -78,10 +78,8 @@ class BotTest(unittest.TestCase):
         self.db.add_channel(CHANNEL, "Мой канал", "https://t.me/my_channel")
 
     def wait_broadcast(self):
-        thread = self.app._broadcast_thread
-        self.assertIsNotNone(thread, "рассылка не запустилась")
-        thread.join(timeout=10)
-        self.assertFalse(thread.is_alive())
+        """Выполняет всё, что стоит в очереди (в работающем боте это делает планировщик)."""
+        self.app.run_due_jobs()
 
     # ---- ученик ----
 
@@ -349,7 +347,8 @@ class BotTest(unittest.TestCase):
         self.message(ADMIN, "Черновик")
         self.click(ADMIN, "a:cancel")
         self.click(ADMIN, "a:bcok")
-        self.assertIsNone(self.app._broadcast_thread)
+        self.wait_broadcast()
+        self.assertEqual(self.db.broadcasts(), [])
         self.assertEqual(self.fake.sent("copyMessage", USER), [])
 
     def test_notify_about_lesson(self):
@@ -365,6 +364,122 @@ class BotTest(unittest.TestCase):
         note = self.fake.sent("sendMessage", USER)[0]
         self.assertIn("Новый урок: Свет и кадр", note["text"])
         self.assertEqual(note["reply_markup"]["inline_keyboard"][0][0]["callback_data"], f"l:{lesson_id}")
+
+    # ---- очередь рассылок, отложенная отправка, аудитории ----
+
+    def queue(self, text="Привет", segment=None, scheduled_at=None, **payload) -> int:
+        return self.app.queue_broadcast(ADMIN, "text", {"text": text, **payload}, segment, scheduled_at)
+
+    def test_scheduled_broadcast_waits_for_its_time(self):
+        self.message(USER, "/start")
+        self.fake.reset()
+        bid = self.queue("Завтра эфир", scheduled_at=int(time.time()) + 3600)
+
+        self.wait_broadcast()
+        self.assertEqual(self.fake.sent("sendMessage", USER), [])
+        self.assertEqual(self.db.broadcast(bid)["status"], "scheduled")
+
+        self.db._run("UPDATE broadcasts SET scheduled_at = ? WHERE id = ?", (int(time.time()) - 1, bid))
+        self.wait_broadcast()
+        self.assertEqual(self.fake.sent("sendMessage", USER)[0]["text"], "Завтра эфир")
+        row = self.db.broadcast(bid)
+        self.assertEqual((row["status"], row["total"], row["delivered"]), ("done", 1, 1))
+
+        self.fake.reset()
+        self.wait_broadcast()  # повторно не уходит
+        self.assertEqual(self.fake.sent("sendMessage", USER), [])
+
+    def test_cancelled_broadcast_is_not_sent(self):
+        self.message(USER, "/start")
+        self.fake.reset()
+        bid = self.queue("Не отправлять")
+        self.assertTrue(self.db.cancel_broadcast(bid))
+        self.wait_broadcast()
+        self.assertEqual(self.fake.sent("sendMessage", USER), [])
+        self.assertFalse(self.db.cancel_broadcast(bid))
+
+    def test_broadcast_segments(self):
+        first = self.add_lesson("Первый")
+        second = self.add_lesson("Второй")
+        self.message(50, f"/start lesson{first}")   # открыл первый урок, пришёл по его ссылке
+        self.message(51, "/start reels_7")          # ничего не открывал
+        self.message(52, "/start")
+        self.click(52, f"l:{second}")               # открыл второй урок
+        self.db._run("UPDATE users SET created_at = created_at - 20 * 86400 WHERE id = 52")
+
+        def audience(segment):
+            return [u["id"] for u in self.db.segment_users(segment)]
+
+        self.assertEqual(audience({"type": "all"}), [50, 51, 52])
+        self.assertEqual(audience({"type": "lesson", "id": first}), [50])
+        self.assertEqual(audience({"type": "not_lesson", "id": first}), [51, 52])
+        self.assertEqual(audience({"type": "no_views"}), [51])
+        self.assertEqual(audience({"type": "source", "value": "reels_7"}), [51])
+        self.assertEqual(audience({"type": "new", "days": 7}), [50, 51])
+        self.assertEqual(self.db.segment_count({"type": "not_lesson", "id": first}), 2)
+
+        self.fake.reset()
+        self.queue("Только тем, кто не открыл", segment={"type": "no_views"})
+        self.wait_broadcast()
+        self.assertEqual([p["chat_id"] for p in self.fake.sent("sendMessage") if p["text"].startswith("Только")], [51])
+
+    def test_broadcast_formatting_name_button_and_photo(self):
+        lesson_id = self.add_lesson("Монтаж")
+        self.message(USER, "/start")
+        self.fake.reset()
+        self.queue("**Привет**, {имя}! <3", button_text="Открыть", button_target=f"lesson:{lesson_id}", photo="PHOTO_ID")
+        self.queue("Ссылка", button_text="Сайт", button_target="https://example.com")
+        self.wait_broadcast()
+
+        photo = self.fake.sent("sendPhoto", USER)[0]
+        self.assertEqual(photo["photo"], "PHOTO_ID")
+        self.assertEqual(photo["caption"], f"<b>Привет</b>, User{USER}! &lt;3")
+        self.assertEqual(photo["reply_markup"]["inline_keyboard"][0][0]["callback_data"], f"l:{lesson_id}")
+        link = self.fake.sent("sendMessage", USER)[0]
+        self.assertEqual(link["reply_markup"]["inline_keyboard"][0][0]["url"], "https://example.com")
+
+    def test_interrupted_broadcast_resumes_without_duplicates(self):
+        for uid in (50, 51, 52):
+            self.message(uid, "/start")
+        self.fake.reset()
+        bid = self.queue("Важное")
+        # Бот «упал» посреди рассылки: первому получателю уже отправлено.
+        self.db.update_broadcast(bid, status="sending", total=3, delivered=1, last_user_id=50)
+
+        self.wait_broadcast()
+
+        self.assertEqual(sorted(p["chat_id"] for p in self.fake.sent("sendMessage") if p["text"] == "Важное"), [51, 52])
+        row = self.db.broadcast(bid)
+        self.assertEqual((row["status"], row["delivered"]), ("done", 3))
+
+    def test_auto_messages(self):
+        self.message(50, "/start")  # пришёл до создания автосообщения — ему оно не уходит
+        self.db._run("UPDATE users SET created_at = created_at - 7200 WHERE id = 50")
+        auto_id = self.db.save_auto(None, 60, "Как тебе урок, {имя}?", "", "", True)
+        self.db._run("UPDATE autos SET created_at = created_at - 7000 WHERE id = ?", (auto_id,))
+        self.message(51, "/start")
+        self.message(52, "/start")
+        self.db._run("UPDATE users SET created_at = created_at - 3601 WHERE id = 51")  # прошёл час
+        self.fake.reset()
+
+        self.wait_broadcast()
+        sent = [p for p in self.fake.sent("sendMessage") if "Как тебе урок" in p["text"]]
+        self.assertEqual([(p["chat_id"], p["text"]) for p in sent], [(51, "Как тебе урок, User51?")])
+
+        self.fake.reset()
+        self.wait_broadcast()  # второй раз тому же человеку не приходит
+        self.assertEqual(self.fake.sent("sendMessage"), [])
+
+        self.db.save_auto(auto_id, 60, "Как тебе урок?", "", "", False)  # выключено
+        self.db._run("UPDATE users SET created_at = created_at - 3601 WHERE id = 52")
+        self.wait_broadcast()
+        self.assertEqual(self.fake.sent("sendMessage"), [])
+
+    def test_panel_link_only_for_admins(self):
+        self.message(ADMIN, "/panel")
+        self.assertIn("выключена", self.fake.texts(ADMIN))
+        self.message(USER, "/panel")
+        self.assertNotIn("анел", self.fake.texts(USER))
 
     def test_stats_and_texts(self):
         lesson_id = self.add_lesson("Монтаж")
@@ -465,6 +580,13 @@ class ContentTest(unittest.TestCase):
             extract_content({"animation": {"file_id": "gif"}, "document": {"file_id": "doc"}}), ("animation", "gif")
         )
         self.assertIsNone(extract_content({"sticker": {"file_id": "x"}}))
+
+    def test_render_text(self):
+        self.assertEqual(render_text("**Жирный** и __курсив__", "Аня"), "<b>Жирный</b> и <i>курсив</i>")
+        self.assertEqual(render_text("{имя}, привет", None), "друг, привет")
+        self.assertEqual(render_text("{имя}", "<b>x</b>"), "&lt;b&gt;x&lt;/b&gt;")
+        # Пересекающиеся выделения Telegram не примет — отправляем как обычный текст.
+        self.assertEqual(render_text("**a __b** c__"), "**a __b** c__")
 
 
 if __name__ == "__main__":

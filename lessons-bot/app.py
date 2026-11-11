@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import html
+import json
 import logging
 import re
 import threading
@@ -38,6 +39,11 @@ MEDIA = {
 }
 CODE_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 URL_RE = re.compile(r"^(https?://\S+|[\w-]+(\.[\w-]+)+([/?#]\S*)?)$")
+BOLD_RE = re.compile(r"\*\*(.+?)\*\*", re.S)
+ITALIC_RE = re.compile(r"__(.+?)__", re.S)
+TAG_RE = re.compile(r"<(/?)([bi])>")
+MAX_BUTTON_TEXT = 40
+SEGMENT_TYPES = ("all", "source", "lesson", "not_lesson", "no_views", "new")
 
 
 def esc(text) -> str:
@@ -52,6 +58,43 @@ def ikb(rows: list) -> dict:
     return {"inline_keyboard": [r for r in rows if r]}
 
 
+def normalize_url(text: str):
+    """Приводит ссылку к виду https://… или возвращает None, если это не ссылка."""
+    text = (text or "").strip()
+    if not URL_RE.match(text):
+        return None
+    return text if text.lower().startswith(("http://", "https://")) else "https://" + text
+
+
+def render_text(text: str, first_name: str | None = None) -> str:
+    """Текст рассылки -> HTML для Telegram: **жирный**, __курсив__, {имя}."""
+    plain = esc(text)
+    out = ITALIC_RE.sub(r"<i>\1</i>", BOLD_RE.sub(r"<b>\1</b>", plain))
+    stack = []
+    for closing, tag in TAG_RE.findall(out):
+        if not closing:
+            stack.append(tag)
+        elif not stack or stack.pop() != tag:
+            stack = ["x"]
+            break
+    if stack:  # выделения пересеклись — Telegram такое не примет, шлём без оформления
+        out = plain
+    return out.replace("{имя}", esc(first_name or "друг"))
+
+
+def parse_channel_ref(text: str):
+    """@username, ссылка t.me/… или числовой ID -> то, что понимает Telegram. Иначе None."""
+    text = (text or "").strip()
+    match = re.match(r"^(?:https?://)?(?:t\.me|telegram\.me)/([A-Za-z][\w]{3,})/?(?:\d+)?$", text)
+    if match:
+        return "@" + match.group(1)
+    if re.match(r"^@[A-Za-z][\w]{3,}$", text):
+        return text
+    if re.match(r"^-?\d+$", text):
+        return int(text)
+    return None
+
+
 def extract_content(m: dict):
     """Достаёт из сообщения админа материал урока: (вид, содержимое) или None."""
     if m.get("photo"):
@@ -62,9 +105,8 @@ def extract_content(m: dict):
     text = (m.get("text") or "").strip()
     if not text:
         return None
-    if URL_RE.match(text):
-        return "url", text if text.lower().startswith(("http://", "https://")) else "https://" + text
-    return "text", text
+    url = normalize_url(text)
+    return ("url", url) if url else ("text", text)
 
 
 class App:
@@ -78,8 +120,9 @@ class App:
         self.pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="upd")
         self.broadcast_delay = 0.05  # ~20 сообщений в секунду, с запасом от лимитов Telegram
         self.poll_timeout = 50
-        self._broadcast_lock = threading.Lock()
-        self._broadcast_thread: threading.Thread | None = None
+        self.panel = None  # веб-панель (panel.Panel), если включена
+        self._jobs_lock = threading.Lock()
+        self._wake = threading.Event()
         self._channel_warned: dict = {}
 
     # ================= запуск =================
@@ -102,6 +145,7 @@ class App:
 
     def run(self) -> None:
         self.setup()
+        threading.Thread(target=self._scheduler_loop, name="scheduler", daemon=True).start()
         offset = None
         backoff = 1
         while not self.stop.is_set():
@@ -232,12 +276,14 @@ class App:
                 self.send(uid, f"Твой Telegram ID: <code>{uid}</code>")
                 return
             if cmd == "/help":
-                extra = "\n/admin — панель управления" if self.is_admin(uid) else ""
+                extra = "\n/admin — управление в Telegram\n/panel — панель в браузере" if self.is_admin(uid) else ""
                 self.send(uid, "/start — открыть уроки\n/lessons — список уроков" + extra)
                 return
             if self.is_admin(uid) and cmd in ("/admin", "/cancel"):
                 self.states.pop(uid, None)
                 return self.admin_home(uid)
+            if self.is_admin(uid) and cmd == "/panel":
+                return self.send_panel_link(uid)
         else:
             self.db.upsert_user(uid, user.get("username"), user.get("first_name"))
 
@@ -453,9 +499,21 @@ class App:
                 [btn("📢 Рассылка", "a:bc"), btn("📊 Статистика", "a:st")],
                 [btn("🔔 Обязательная подписка", "a:ch")],
                 [btn("✏️ Тексты", "a:tx"), btn("⚙️ Настройки", "a:set")],
+                [btn("🖥 Панель в браузере", "a:panel")],
             ]
         )
         self.show(uid, text, kb, mid)
+
+    def send_panel_link(self, uid: int) -> None:
+        if not self.panel:
+            self.send(uid, "Панель в браузере выключена (PANEL_PORT=0 в настройках бота).")
+            return
+        self.send(
+            uid,
+            "🖥 <b>Панель управления</b>\n\n"
+            f"{esc(self.panel.login_link(uid))}\n\n"
+            "Ссылка одноразовая и действует 10 минут. Никому её не пересылай.",
+        )
 
     def admin_callback(self, cq: dict, uid: int, data: str, mid: int | None) -> None:
         parts = data.split(":")
@@ -468,6 +526,8 @@ class App:
 
         if action in ("home", "cancel"):
             self.admin_home(uid, mid)
+        elif action == "panel":
+            self.send_panel_link(uid)
         elif action == "ls":
             self.admin_lessons(uid, mid)
         elif action == "add":
@@ -808,41 +868,38 @@ class App:
     def admin_channel_input(self, uid: int, m: dict, text: str) -> None:
         origin = m.get("forward_origin") or {}
         fwd_chat = origin.get("chat") or origin.get("sender_chat") or m.get("forward_from_chat")
-        if fwd_chat:
-            target = fwd_chat["id"]
-        else:
-            match = re.match(r"^(?:https?://)?(?:t\.me|telegram\.me)/([A-Za-z][\w]{3,})/?(?:\d+)?$", text)
-            if match:
-                target = "@" + match.group(1)
-            elif re.match(r"^@[A-Za-z][\w]{3,}$", text):
-                target = text
-            elif re.match(r"^-?\d+$", text):
-                target = int(text)
-            else:
-                self.send(
-                    uid,
-                    "Не понял, что это за канал. Пришли @username, ссылку вида t.me/название "
-                    "или перешли сюда любой пост из канала (для закрытых каналов — только так).",
-                    self.cancel_kb("a:ch"),
-                )
-                return
+        target = fwd_chat["id"] if fwd_chat else parse_channel_ref(text)
+        if target is None:
+            self.send(
+                uid,
+                "Не понял, что это за канал. Пришли @username, ссылку вида t.me/название "
+                "или перешли сюда любой пост из канала (для закрытых каналов — только так).",
+                self.cancel_kb("a:ch"),
+            )
+            return
+        error, title = self.connect_channel(target)
+        if error:
+            self.send(uid, error, self.cancel_kb("a:ch"))
+            return
+        self.states.pop(uid, None)
+        self.send(uid, f"✅ Готово! Теперь уроки получат только подписчики «{esc(title)}».")
+        self.admin_channels(uid)
 
+    def connect_channel(self, target):
+        """Подключает канал к обязательной подписке. Возвращает (ошибка или None, название)."""
         not_admin = (
             "Я не вижу этот канал или я в нём не администратор.\n"
-            "Добавь меня в канал администратором и пришли его ещё раз."
+            "Добавь меня в канал администратором и попробуй ещё раз."
         )
         try:
             chat = self.tg.call("getChat", chat_id=target)
             me = self.tg.call("getChatMember", chat_id=chat["id"], user_id=self.me["id"])
         except TgError:
-            self.send(uid, not_admin, self.cancel_kb("a:ch"))
-            return
+            return not_admin, None
         if chat.get("type") not in ("channel", "supergroup", "group"):
-            self.send(uid, "Это не канал и не группа. Пришли канал или группу.", self.cancel_kb("a:ch"))
-            return
+            return "Это не канал и не группа.", None
         if me.get("status") not in ("administrator", "creator"):
-            self.send(uid, not_admin, self.cancel_kb("a:ch"))
-            return
+            return not_admin, None
 
         if chat.get("username"):
             link = f"https://t.me/{chat['username']}"
@@ -853,18 +910,14 @@ class App:
             except TgError:
                 pass
             if not link:
-                self.send(
-                    uid,
+                return (
                     "Канал закрытый, а у меня нет права создавать ссылки-приглашения.\n"
-                    "Включи мне в настройках администратора право «Пригласительные ссылки» и пришли канал ещё раз.",
-                    self.cancel_kb("a:ch"),
+                    "Включи мне в настройках администратора право «Пригласительные ссылки» и попробуй ещё раз.",
+                    None,
                 )
-                return
-
-        self.db.add_channel(chat["id"], chat.get("title") or str(chat["id"]), link)
-        self.states.pop(uid, None)
-        self.send(uid, f"✅ Готово! Теперь уроки получат только подписчики «{esc(chat.get('title'))}».")
-        self.admin_channels(uid)
+        title = chat.get("title") or str(chat["id"])
+        self.db.add_channel(chat["id"], title, link)
+        return None, title
 
     # ---------- статистика и настройки ----------
 
@@ -905,69 +958,233 @@ class App:
         )
         self.show(uid, text, kb, mid)
 
-    # ================= рассылки =================
+    # ================= рассылки и автосообщения =================
 
     def start_copy_broadcast(self, admin_id: int, source_mid: int, mid: int | None) -> None:
-        def send_one(target: int) -> None:
-            self.tg.call("copyMessage", chat_id=target, from_chat_id=admin_id, message_id=source_mid)
+        self.queue_broadcast(admin_id, "copy", {"from_chat_id": admin_id, "message_id": source_mid})
+        self._announce_broadcast(admin_id, mid)
 
-        self.start_broadcast(admin_id, send_one, mid)
-
-    def notify_lesson(self, admin_id: int, lesson_id: int, mid: int | None) -> None:
+    def notify_lesson(self, admin_id: int, lesson_id: int, mid: int | None = None, announce: bool = True) -> bool:
         lesson = self.db.lesson(lesson_id)
         if not lesson:
-            return self.admin_lessons(admin_id, mid)
+            if announce:
+                self.admin_lessons(admin_id, mid)
+            return False
         text = f"🆕 <b>Новый урок: {esc(lesson['title'])}</b>"
         if lesson["description"]:
             text += "\n\n" + esc(lesson["description"])
-        kb = ikb([[btn("▶️ Открыть урок", f"l:{lesson_id}")]])
+        payload = {"html": text, "button_text": "▶️ Открыть урок", "button_target": f"lesson:{lesson_id}"}
+        self.queue_broadcast(admin_id, "text", payload)
+        if announce:
+            self._announce_broadcast(admin_id, mid)
+        return True
 
-        def send_one(target: int) -> None:
-            self.send(target, text, kb)
+    def _announce_broadcast(self, admin_id: int, mid: int | None) -> None:
+        count = self.db.segment_count({"type": "all"})
+        self.show(admin_id, f"🚀 Рассылка запущена: {count} получателей. Пришлю отчёт, когда закончу.", None, mid)
 
-        self.start_broadcast(admin_id, send_one, mid)
-
-    def start_broadcast(self, admin_id: int, send_one, mid: int | None = None) -> None:
-        if not self._broadcast_lock.acquire(blocking=False):
-            self.show(admin_id, "Предыдущая рассылка ещё идёт. Дождись отчёта и попробуй снова.", None, mid)
-            return
-        targets = self.db.active_user_ids()
-        self.show(admin_id, f"🚀 Рассылка началась: {len(targets)} получателей. Пришлю отчёт, когда закончу.", None, mid)
-        self._broadcast_thread = threading.Thread(
-            target=self._broadcast_worker, args=(admin_id, targets, send_one), name="broadcast", daemon=True
+    def queue_broadcast(self, admin_id: int, kind: str, payload: dict, segment: dict | None = None,
+                        scheduled_at: int | None = None) -> int:
+        """Ставит рассылку в очередь: сразу или на указанное время."""
+        bid = self.db.add_broadcast(
+            kind, payload, segment or {"type": "all"}, scheduled_at or int(time.time()), admin_id
         )
-        self._broadcast_thread.start()
+        self._wake.set()
+        return bid
 
-    def _broadcast_worker(self, admin_id: int, targets: list, send_one) -> None:
-        delivered = blocked = failed = 0
-        try:
-            for target in targets:
-                if self.stop.is_set():
+    # ---- проверка того, что собрано в панели ----
+
+    def clean_message(self, data: dict):
+        """Проверяет сообщение из панели. Возвращает (ошибка или None, готовое содержимое)."""
+        text = str(data.get("text") or "").strip()
+        photo = str(data.get("photo") or "").strip()
+        if not text:
+            return "Напиши текст сообщения.", None
+        limit = 1000 if photo else 4000
+        if len(text) > limit:
+            where = "с картинкой " if photo else ""
+            return f"Текст {where}слишком длинный: {len(text)} символов, а можно не больше {limit}.", None
+        error, button_text, button_target = self.clean_button(data)
+        if error:
+            return error, None
+        payload = {"text": text}
+        if photo:
+            payload["photo"] = photo
+        if button_text:
+            payload.update(button_text=button_text, button_target=button_target)
+        return None, payload
+
+    def clean_button(self, data: dict):
+        button_text = str(data.get("button_text") or "").strip()
+        button_target = str(data.get("button_target") or "").strip()
+        if not button_text and not button_target:
+            return None, "", ""
+        if not button_text:
+            return "Напиши надпись на кнопке.", "", ""
+        if len(button_text) > MAX_BUTTON_TEXT:
+            return f"Надпись на кнопке длиннее {MAX_BUTTON_TEXT} символов.", "", ""
+        if button_target.startswith("lesson:"):
+            lesson_id = button_target[7:]
+            if not lesson_id.isdigit() or not self.db.lesson(int(lesson_id)):
+                return "Выбери урок, который откроет кнопка.", "", ""
+            return None, button_text, button_target
+        url = normalize_url(button_target)
+        if not url:
+            return "Ссылка для кнопки выглядит неправильно. Пример: https://example.com", "", ""
+        return None, button_text, url
+
+    def clean_segment(self, segment):
+        """Проверяет выбор аудитории. Возвращает (ошибка или None, сегмент)."""
+        if not isinstance(segment, dict) or segment.get("type") not in SEGMENT_TYPES:
+            return None, {"type": "all"}
+        kind = segment["type"]
+        if kind == "source":
+            value = str(segment.get("value") or "").strip()
+            if not value:
+                return "Выбери ссылку, по которой пришли получатели.", None
+            return None, {"type": kind, "value": value}
+        if kind in ("lesson", "not_lesson"):
+            lesson_id = str(segment.get("id") or "")
+            if not lesson_id.isdigit() or not self.db.lesson(int(lesson_id)):
+                return "Выбери урок для отбора получателей.", None
+            return None, {"type": kind, "id": int(lesson_id)}
+        if kind == "new":
+            days = str(segment.get("days") or "")
+            if not days.isdigit() or not 1 <= int(days) <= 365:
+                return "Укажи, за сколько дней брать новых: от 1 до 365.", None
+            return None, {"type": kind, "days": int(days)}
+        return None, {"type": kind}
+
+    def segment_label(self, segment: dict) -> str:
+        kind = (segment or {}).get("type", "all")
+        if kind == "source":
+            return f"Пришли по ссылке {segment.get('value')}"
+        if kind in ("lesson", "not_lesson"):
+            lesson = self.db.lesson(int(segment.get("id") or 0))
+            title = lesson["title"] if lesson else "удалённый урок"
+            return ("Открывали" if kind == "lesson" else "Не открывали") + f" «{title}»"
+        if kind == "no_views":
+            return "Не открыли ни одного урока"
+        if kind == "new":
+            return f"Новые за {segment.get('days')} дн."
+        return "Все пользователи"
+
+    # ---- отправка ----
+
+    def send_composed(self, uid: int, first_name: str | None, payload: dict) -> None:
+        """Отправляет одному человеку сообщение, собранное в панели."""
+        text = payload.get("html") or render_text(payload.get("text") or "", first_name)
+        kb = None
+        if payload.get("button_text"):
+            target = payload.get("button_target") or ""
+            if target.startswith("lesson:"):
+                kb = ikb([[btn(payload["button_text"], f"l:{target[7:]}")]])
+            else:
+                kb = ikb([[btn(payload["button_text"], url=target)]])
+        if payload.get("photo"):
+            self.tg.call(
+                "sendPhoto", chat_id=uid, photo=payload["photo"], caption=text, parse_mode="HTML", reply_markup=kb
+            )
+        else:
+            self.send(uid, text, kb)
+
+    def _scheduler_loop(self) -> None:
+        while not self.stop.is_set():
+            try:
+                self.run_due_jobs()
+            except Exception:
+                log.exception("Ошибка в планировщике рассылок")
+            self._wake.wait(5)
+            self._wake.clear()
+
+    def run_due_jobs(self) -> None:
+        """Отправляет всё, чьё время пришло: рассылки из очереди и автосообщения."""
+        with self._jobs_lock:
+            while not self.stop.is_set():
+                job = self.db.next_due_broadcast()
+                if not job:
                     break
-                result = self._send_with_retry(target, send_one)
-                if result == "ok":
-                    delivered += 1
-                elif result == "blocked":
-                    blocked += 1
-                    self.db.set_blocked(target, True)
-                else:
-                    failed += 1
-                time.sleep(self.broadcast_delay)
-        finally:
-            self._broadcast_lock.release()
-        report = f"✅ Рассылка завершена.\n\nДоставлено: {delivered}\nЗаблокировали бота: {blocked}"
-        if failed:
-            report += f"\nНе доставлено из-за ошибок: {failed}"
+                self._run_broadcast(job)
+            self._run_autos()
+
+    def _run_broadcast(self, job) -> None:
+        bid = job["id"]
         try:
-            self.send(admin_id, report, ikb([[btn("⬅️ В панель", "a:home")]]))
+            payload = json.loads(job["payload"])
+            segment = json.loads(job["segment"])
+            if job["status"] == "scheduled":
+                self.db.update_broadcast(
+                    bid, status="sending", started_at=int(time.time()), total=self.db.segment_count(segment)
+                )
+            if job["kind"] == "copy":
+                def send_one(uid: int, first_name) -> None:
+                    self.tg.call(
+                        "copyMessage", chat_id=uid, from_chat_id=payload["from_chat_id"], message_id=payload["message_id"]
+                    )
+            else:
+                def send_one(uid: int, first_name) -> None:
+                    self.send_composed(uid, first_name, payload)
+
+            counts = {"delivered": job["delivered"], "blocked": job["blocked"], "failed": job["failed"]}
+            last = job["last_user_id"]
+            while True:
+                batch = self.db.segment_users(segment, after_id=last)
+                if not batch:
+                    break
+                for user in batch:
+                    if self.stop.is_set():
+                        return  # бот останавливается — продолжим с этого места после запуска
+                    if self.db.broadcast(bid)["status"] != "sending":
+                        self._report_broadcast(job, counts, cancelled=True)
+                        return
+                    result = self._send_with_retry(user["id"], lambda uid, u=user: send_one(uid, u["first_name"]))
+                    counts[result] += 1
+                    if result == "blocked":
+                        self.db.set_blocked(user["id"], True)
+                    last = user["id"]
+                    self.db.update_broadcast(bid, last_user_id=last, **counts)
+                    time.sleep(self.broadcast_delay)
+            self.db.update_broadcast(bid, status="done", finished_at=int(time.time()))
+            self._report_broadcast(job, counts)
+        except Exception:
+            log.exception("Рассылка %s остановлена из-за ошибки", bid)
+            self.db.update_broadcast(bid, status="cancelled", finished_at=int(time.time()))
+
+    def _report_broadcast(self, job, counts: dict, cancelled: bool = False) -> None:
+        head = "⏹ Рассылка остановлена." if cancelled else "✅ Рассылка завершена."
+        report = f"{head}\n\nДоставлено: {counts['delivered']}\nЗаблокировали бота: {counts['blocked']}"
+        if counts["failed"]:
+            report += f"\nНе доставлено из-за ошибок: {counts['failed']}"
+        try:
+            self.send(job["created_by"], report, ikb([[btn("⬅️ В панель", "a:home")]]))
         except (TgError, TgNetworkError):
             log.warning("Не удалось отправить отчёт о рассылке")
+
+    def _run_autos(self) -> None:
+        for auto in self.db.autos():
+            if not auto["enabled"]:
+                continue
+            payload = {
+                "text": auto["text"],
+                "button_text": auto["button_text"],
+                "button_target": auto["button_target"],
+            }
+            for user in self.db.auto_due_users(auto):
+                if self.stop.is_set():
+                    return
+                result = self._send_with_retry(
+                    user["id"], lambda uid, u=user: self.send_composed(uid, u["first_name"], payload)
+                )
+                self.db.mark_auto_sent(auto["id"], user["id"])
+                if result == "blocked":
+                    self.db.set_blocked(user["id"], True)
+                time.sleep(self.broadcast_delay)
 
     def _send_with_retry(self, target: int, send_one) -> str:
         for _ in range(3):
             try:
                 send_one(target)
-                return "ok"
+                return "delivered"
             except TgError as e:
                 if e.code == 429:
                     time.sleep((e.retry_after or 1) + 0.5)

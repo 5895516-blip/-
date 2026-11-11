@@ -30,6 +30,9 @@ class Config:
     admin_ids: set = field(default_factory=set)
     db_path: str = os.path.join(BASE_DIR, "data", "bot.db")
     api_url: str = "https://api.telegram.org"
+    panel_port: int = 8080          # 0 — панель выключена
+    panel_host: str = "0.0.0.0"
+    panel_url: str = "http://localhost:8080"
 
 
 def load_config() -> Config:
@@ -55,4 +58,21 @@ def load_config() -> Config:
         db_path = os.path.join(BASE_DIR, db_path)
 
     api_url = os.environ.get("TELEGRAM_API_URL", "").strip() or "https://api.telegram.org"
-    return Config(token=token, admin_ids=admin_ids, db_path=db_path, api_url=api_url.rstrip("/"))
+
+    port_raw = os.environ.get("PANEL_PORT", "").strip() or "8080"
+    if not port_raw.isdigit() or int(port_raw) > 65535:
+        raise SystemExit(f"PANEL_PORT: «{port_raw}» — это не номер порта. Пример: 8080 (0 — выключить панель).")
+    panel_port = int(port_raw)
+    panel_url = os.environ.get("PANEL_URL", "").strip().rstrip("/") or f"http://localhost:{panel_port}"
+    if not panel_url.startswith(("http://", "https://")):
+        panel_url = "http://" + panel_url
+
+    return Config(
+        token=token,
+        admin_ids=admin_ids,
+        db_path=db_path,
+        api_url=api_url.rstrip("/"),
+        panel_port=panel_port,
+        panel_host=os.environ.get("PANEL_HOST", "").strip() or "0.0.0.0",
+        panel_url=panel_url,
+    )

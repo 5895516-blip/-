@@ -1,6 +1,7 @@
 """Хранилище бота: SQLite (один файл, ничего устанавливать не нужно)."""
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 import threading
@@ -42,6 +43,43 @@ CREATE TABLE IF NOT EXISTS channels (
 CREATE TABLE IF NOT EXISTS settings (
     key         TEXT PRIMARY KEY,
     value       TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS broadcasts (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind         TEXT NOT NULL,              -- text (собрана в панели) | copy (копия сообщения админа)
+    payload      TEXT NOT NULL,              -- JSON: текст, кнопка, картинка и т.п.
+    segment      TEXT NOT NULL,              -- JSON: кому отправлять
+    status       TEXT NOT NULL,              -- scheduled | sending | done | cancelled
+    scheduled_at INTEGER NOT NULL,
+    created_by   INTEGER NOT NULL,
+    created_at   INTEGER NOT NULL,
+    started_at   INTEGER,
+    finished_at  INTEGER,
+    last_user_id INTEGER NOT NULL DEFAULT 0, -- до кого дошли: чтобы продолжить после перезапуска
+    total        INTEGER NOT NULL DEFAULT 0,
+    delivered    INTEGER NOT NULL DEFAULT 0,
+    blocked      INTEGER NOT NULL DEFAULT 0,
+    failed       INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS autos (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    delay_minutes INTEGER NOT NULL,          -- через сколько минут после первого /start
+    text          TEXT NOT NULL,
+    button_text   TEXT NOT NULL DEFAULT '',
+    button_target TEXT NOT NULL DEFAULT '',  -- ссылка или lesson:ID
+    enabled       INTEGER NOT NULL DEFAULT 1,
+    created_at    INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS auto_sent (
+    auto_id     INTEGER NOT NULL,
+    user_id     INTEGER NOT NULL,
+    sent_at     INTEGER NOT NULL,
+    PRIMARY KEY (auto_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS sessions (
+    sid_hash    TEXT PRIMARY KEY,
+    admin_id    INTEGER NOT NULL,
+    expires_at  INTEGER NOT NULL
 );
 """
 
@@ -92,6 +130,9 @@ class DB:
                 (username, first_name, now, source, uid),
             )
             return False
+
+    def user(self, uid: int):
+        return self._one("SELECT * FROM users WHERE id = ?", (uid,))
 
     def set_pending(self, uid: int, code: str | None) -> None:
         self._run("UPDATE users SET pending = ? WHERE id = ?", (code, uid))
@@ -223,3 +264,174 @@ class DB:
             " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             (key, value),
         )
+
+    # ---------- аудитория рассылок ----------
+
+    @staticmethod
+    def _segment_where(segment: dict):
+        """Условие SQL для сегмента аудитории: (текст условия, параметры)."""
+        kind = (segment or {}).get("type", "all")
+        if kind == "source":
+            return "u.source = ? COLLATE NOCASE", [str(segment.get("value") or "")]
+        if kind == "lesson":
+            return "EXISTS (SELECT 1 FROM views v WHERE v.user_id = u.id AND v.lesson_id = ?)", [int(segment["id"])]
+        if kind == "not_lesson":
+            return "NOT EXISTS (SELECT 1 FROM views v WHERE v.user_id = u.id AND v.lesson_id = ?)", [int(segment["id"])]
+        if kind == "no_views":
+            return "NOT EXISTS (SELECT 1 FROM views v WHERE v.user_id = u.id)", []
+        if kind == "new":
+            return "u.created_at >= ?", [int(time.time()) - int(segment.get("days") or 7) * 86400]
+        return "1 = 1", []
+
+    def segment_count(self, segment: dict) -> int:
+        where, args = self._segment_where(segment)
+        return self._one(f"SELECT COUNT(*) AS n FROM users u WHERE u.blocked = 0 AND {where}", args)["n"]
+
+    def segment_users(self, segment: dict, after_id: int = 0, limit: int = 200):
+        """Следующая порция получателей (по возрастанию id), начиная после after_id."""
+        where, args = self._segment_where(segment)
+        return self._all(
+            f"SELECT u.id, u.first_name FROM users u WHERE u.blocked = 0 AND u.id > ? AND {where}"
+            " ORDER BY u.id LIMIT ?",
+            [after_id] + args + [limit],
+        )
+
+    # ---------- рассылки ----------
+
+    def add_broadcast(self, kind: str, payload: dict, segment: dict, scheduled_at: int, created_by: int) -> int:
+        cur = self._run(
+            "INSERT INTO broadcasts (kind, payload, segment, status, scheduled_at, created_by, created_at)"
+            " VALUES (?, ?, ?, 'scheduled', ?, ?, ?)",
+            (
+                kind,
+                json.dumps(payload, ensure_ascii=False),
+                json.dumps(segment or {"type": "all"}, ensure_ascii=False),
+                scheduled_at,
+                created_by,
+                int(time.time()),
+            ),
+        )
+        return cur.lastrowid
+
+    def broadcast(self, broadcast_id: int):
+        return self._one("SELECT * FROM broadcasts WHERE id = ?", (broadcast_id,))
+
+    def broadcasts(self, limit: int = 50):
+        return self._all("SELECT * FROM broadcasts ORDER BY id DESC LIMIT ?", (limit,))
+
+    def next_due_broadcast(self):
+        """Прерванная перезапуском рассылка или первая, чьё время пришло."""
+        return self._one(
+            "SELECT * FROM broadcasts WHERE status = 'sending' OR (status = 'scheduled' AND scheduled_at <= ?)"
+            " ORDER BY (status = 'sending') DESC, scheduled_at, id LIMIT 1",
+            (int(time.time()),),
+        )
+
+    def update_broadcast(self, broadcast_id: int, **fields) -> None:
+        allowed = {"status", "started_at", "finished_at", "last_user_id", "total", "delivered", "blocked", "failed"}
+        sets = [k for k in fields if k in allowed]
+        if sets:
+            sql = "UPDATE broadcasts SET " + ", ".join(f"{k} = ?" for k in sets) + " WHERE id = ?"
+            self._run(sql, [fields[k] for k in sets] + [broadcast_id])
+
+    def cancel_broadcast(self, broadcast_id: int) -> bool:
+        cur = self._run(
+            "UPDATE broadcasts SET status = 'cancelled', finished_at = ?"
+            " WHERE id = ? AND status IN ('scheduled', 'sending')",
+            (int(time.time()), broadcast_id),
+        )
+        return cur.rowcount > 0
+
+    # ---------- автосообщения ----------
+
+    def autos(self):
+        return self._all(
+            "SELECT a.*, (SELECT COUNT(*) FROM auto_sent s WHERE s.auto_id = a.id) AS sent"
+            " FROM autos a ORDER BY a.delay_minutes, a.id"
+        )
+
+    def auto(self, auto_id: int):
+        return self._one("SELECT * FROM autos WHERE id = ?", (auto_id,))
+
+    def save_auto(self, auto_id, delay_minutes: int, text: str, button_text: str, button_target: str, enabled: bool) -> int:
+        if auto_id:
+            self._run(
+                "UPDATE autos SET delay_minutes = ?, text = ?, button_text = ?, button_target = ?, enabled = ?"
+                " WHERE id = ?",
+                (delay_minutes, text, button_text, button_target, 1 if enabled else 0, auto_id),
+            )
+            return auto_id
+        cur = self._run(
+            "INSERT INTO autos (delay_minutes, text, button_text, button_target, enabled, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (delay_minutes, text, button_text, button_target, 1 if enabled else 0, int(time.time())),
+        )
+        return cur.lastrowid
+
+    def delete_auto(self, auto_id: int) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM autos WHERE id = ?", (auto_id,))
+            self._conn.execute("DELETE FROM auto_sent WHERE auto_id = ?", (auto_id,))
+
+    def auto_due_users(self, auto, limit: int = 100):
+        """Кому пора отправить автосообщение. Тем, кто пришёл до его создания, оно не уходит."""
+        now = int(time.time())
+        return self._all(
+            "SELECT u.id, u.first_name FROM users u"
+            " WHERE u.blocked = 0 AND u.created_at >= ? AND u.created_at <= ?"
+            " AND NOT EXISTS (SELECT 1 FROM auto_sent s WHERE s.auto_id = ? AND s.user_id = u.id)"
+            " ORDER BY u.id LIMIT ?",
+            (auto["created_at"], now - auto["delay_minutes"] * 60, auto["id"], limit),
+        )
+
+    def mark_auto_sent(self, auto_id: int, uid: int) -> None:
+        self._run(
+            "INSERT OR IGNORE INTO auto_sent (auto_id, user_id, sent_at) VALUES (?, ?, ?)",
+            (auto_id, uid, int(time.time())),
+        )
+
+    # ---------- данные для панели ----------
+
+    def daily_new_users(self, days: int, tz_offset_sec: int):
+        """Сколько людей пришло в каждый из последних дней: {номер_дня: количество}."""
+        since = int(time.time()) - days * 86400
+        rows = self._all(
+            "SELECT (created_at + ?) / 86400 AS d, COUNT(*) AS n FROM users WHERE created_at >= ? GROUP BY d",
+            (tz_offset_sec, since),
+        )
+        return {r["d"]: r["n"] for r in rows}
+
+    def find_users(self, query: str = "", limit: int = 50, offset: int = 0):
+        where, args = "1 = 1", []
+        query = (query or "").strip().lstrip("@")
+        if query:
+            like = f"%{query}%"
+            where = "(u.username LIKE ? OR u.first_name LIKE ? OR u.source LIKE ? OR CAST(u.id AS TEXT) = ?)"
+            args = [like, like, like, query]
+        total = self._one(f"SELECT COUNT(*) AS n FROM users u WHERE {where}", args)["n"]
+        rows = self._all(
+            "SELECT u.id, u.username, u.first_name, u.source, u.blocked, u.created_at, u.last_seen,"
+            " (SELECT COUNT(DISTINCT v.lesson_id) FROM views v WHERE v.user_id = u.id) AS lessons"
+            f" FROM users u WHERE {where} ORDER BY u.created_at DESC, u.id DESC LIMIT ? OFFSET ?",
+            args + [limit, offset],
+        )
+        return total, rows
+
+    # ---------- вход в панель ----------
+
+    def add_session(self, sid_hash: str, admin_id: int, expires_at: int) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM sessions WHERE expires_at < ?", (int(time.time()),))
+            self._conn.execute(
+                "INSERT INTO sessions (sid_hash, admin_id, expires_at) VALUES (?, ?, ?)",
+                (sid_hash, admin_id, expires_at),
+            )
+
+    def session_admin(self, sid_hash: str):
+        row = self._one(
+            "SELECT admin_id FROM sessions WHERE sid_hash = ? AND expires_at >= ?", (sid_hash, int(time.time()))
+        )
+        return row["admin_id"] if row else None
+
+    def delete_session(self, sid_hash: str) -> None:
+        self._run("DELETE FROM sessions WHERE sid_hash = ?", (sid_hash,))

@@ -16,7 +16,19 @@ def main() -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
         stream=sys.stdout,
     )
-    app = App(load_config())
+    config = load_config()
+    app = App(config)
+    if config.panel_port:
+        from panel import Panel
+
+        try:
+            app.panel = Panel(app, config.panel_host, config.panel_port, config.panel_url)
+        except OSError as e:
+            raise SystemExit(
+                f"Не удалось запустить панель на порту {config.panel_port}: {e.strerror}. "
+                "Поменяй PANEL_PORT в .env или поставь PANEL_PORT=0, чтобы выключить панель."
+            )
+        app.panel.start()
 
     def shutdown(*_):
         # Прерываем ожидание новых сообщений, чтобы бот остановился сразу.

@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import socket
 import time
+import uuid
 import urllib.error
 import urllib.request
 
@@ -42,10 +43,29 @@ class Telegram:
                     continue
                 raise
 
-    def _request(self, method: str, body: bytes, timeout: float):
-        req = urllib.request.Request(
-            self._base + method, data=body, headers={"Content-Type": "application/json"}
+    def upload(self, method: str, field: str, filename: str, data: bytes, mime: str, **params):
+        """Вызов метода с загрузкой файла (например, sendPhoto с картинкой с компьютера)."""
+        boundary = uuid.uuid4().hex
+        chunks = []
+        for key, value in params.items():
+            if value is None:
+                continue
+            text = value if isinstance(value, str) else json.dumps(value)
+            chunks.append(
+                f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{text}\r\n'.encode("utf-8")
+            )
+        safe_name = "".join(c for c in filename if c.isascii() and (c.isalnum() or c in "._-")) or "file"
+        chunks.append(
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{field}"; filename="{safe_name}"\r\n'
+            f"Content-Type: {mime}\r\n\r\n".encode("utf-8")
+            + data
+            + b"\r\n"
         )
+        chunks.append(f"--{boundary}--\r\n".encode("utf-8"))
+        return self._request(method, b"".join(chunks), 120, f"multipart/form-data; boundary={boundary}")
+
+    def _request(self, method: str, body: bytes, timeout: float, content_type: str = "application/json"):
+        req = urllib.request.Request(self._base + method, data=body, headers={"Content-Type": content_type})
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 payload = json.loads(resp.read().decode("utf-8"))

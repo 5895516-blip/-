@@ -8,6 +8,23 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 BOT = {"id": 999, "is_bot": True, "first_name": "Уроки", "username": "lessons_test_bot"}
 
 
+def parse_multipart(raw: bytes, boundary: str) -> dict:
+    """Разбирает загрузку файла: обычные поля — как текст, файл — как байты."""
+    params = {}
+    for part in raw.split(b"--" + boundary.encode()):
+        if b"\r\n\r\n" not in part:
+            continue
+        head, _, value = part.partition(b"\r\n\r\n")
+        value = value[:-2] if value.endswith(b"\r\n") else value
+        name = head.split(b'name="')[1].split(b'"')[0].decode()
+        if b"filename=" in head:
+            params[name] = value
+        else:
+            text = value.decode()
+            params[name] = int(text) if text.lstrip("-").isdigit() else text
+    return params
+
+
 class FakeTelegram:
     def __init__(self):
         self.calls: list = []          # [(метод, параметры)]
@@ -22,7 +39,12 @@ class FakeTelegram:
         class Handler(BaseHTTPRequestHandler):
             def do_POST(self):
                 method = self.path.rsplit("/", 1)[-1]
-                params = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+                raw = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                content_type = self.headers.get("Content-Type", "")
+                if content_type.startswith("multipart/form-data"):
+                    params = parse_multipart(raw, content_type.split("boundary=")[1])
+                else:
+                    params = json.loads(raw or b"{}")
                 status, payload = fake.handle(method, params)
                 body = json.dumps(payload).encode()
                 self.send_response(status)
@@ -72,7 +94,10 @@ class FakeTelegram:
                 return 200, {"ok": True, "result": {"message_id": self._mid}}
             # sendMessage, sendPhoto, editMessageText и т.п.
             self._mid += 1
-            return 200, {"ok": True, "result": {"message_id": self._mid, "chat": {"id": chat_id}}}
+            message = {"message_id": self._mid, "chat": {"id": chat_id}}
+            if method == "sendPhoto":
+                message["photo"] = [{"file_id": "PHOTO_SMALL"}, {"file_id": f"PHOTO_{self._mid}"}]
+            return 200, {"ok": True, "result": message}
 
     # ---- удобства для проверок ----
 
