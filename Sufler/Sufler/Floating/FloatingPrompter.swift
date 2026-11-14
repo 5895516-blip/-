@@ -41,6 +41,8 @@ final class FloatingPrompter: NSObject, ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var pendingStart = false
     private var openCameraOnStart = false
+    private var retriedWithExclusiveAudio = false
+    private var startAttempt = 0
     private var housekeeping: Timer?
     private var isPrepared = false
 
@@ -160,17 +162,28 @@ final class FloatingPrompter: NSObject, ObservableObject {
         }
         openCameraOnStart = openCamera
         isStarting = true
+        retriedWithExclusiveAudio = false
+        startAttempt += 1
+        let attempt = startAttempt
         if controller.isPictureInPicturePossible {
             controller.startPictureInPicture()
         } else {
             // The layer needs a first frame; start as soon as the system is ready.
             pendingStart = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-                guard let self, self.pendingStart else { return }
-                self.pendingStart = false
-                self.isStarting = false
-                self.message = "Окно не запустилось. Проверьте: Настройки → Основные → «Картинка в картинке» — и попробуйте ещё раз."
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+                guard let self, self.startAttempt == attempt, self.pendingStart else { return }
+                // Still not possible: some iOS versions want an audio session that does not mix.
+                self.retriedWithExclusiveAudio = true
+                self.configureAudioSession(mixWithOthers: false)
             }
+        }
+        // Whatever happens, never leave the button stuck in the "starting" state.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) { [weak self] in
+            guard let self, self.startAttempt == attempt, self.isStarting, !self.isActive else { return }
+            self.pendingStart = false
+            self.isStarting = false
+            self.openCameraOnStart = false
+            self.message = "Окно не запустилось. Проверьте: Настройки → Основные → «Картинка в картинке» — и попробуйте ещё раз."
         }
     }
 
@@ -298,12 +311,12 @@ final class FloatingPrompter: NSObject, ObservableObject {
 
     // MARK: Picture in Picture set-up
 
-    private func configureAudioSession() {
+    private func configureAudioSession(mixWithOthers: Bool = true) {
         // Picture in Picture requires the playback category. `mixWithOthers` keeps the user's
         // music playing and lets the Camera take the microphone without a conflict.
         let audioSession = AVAudioSession.sharedInstance()
         do {
-            try audioSession.setCategory(.playback, mode: .moviePlayback, options: [.mixWithOthers])
+            try audioSession.setCategory(.playback, mode: .moviePlayback, options: mixWithOthers ? [.mixWithOthers] : [])
             try audioSession.setActive(true)
         } catch {
             try? audioSession.setCategory(.playback)
@@ -398,17 +411,31 @@ final class FloatingPrompter: NSObject, ObservableObject {
         let clock = session.clock
         let rate = FloatingPrompter.frameRate
 
-        if clock.snapshot(at: now + FloatingPrompter.lead).isMoving {
-            // Moving text: frames get exact timestamps on a 60 Hz grid, slightly in the future.
-            let lastSlot = Int64(((now + FloatingPrompter.lead) * rate).rounded(.down))
-            var slot = max(nextSlot, lastSlot - 1)
-            while slot <= lastSlot {
-                let time = Double(slot) / rate
-                let state = FloatingPrompter.frameState(clock.snapshot(at: time), toast: toastText, hint: hintText)
-                enqueue(content: content, state: state, size: size, time: time, scheduled: true)
-                slot += 1
+        // Frames can be scheduled ahead only when the layer runs on the same clock as the app.
+        let layerTime = CMTimebaseGetTime(displayLayer.timebase)
+        let followsHostClock = layerTime.isNumeric
+            && CMTimebaseGetRate(displayLayer.timebase) == 1
+            && abs(layerTime.seconds - now) < 0.5
+        let lead = followsHostClock ? FloatingPrompter.lead : 0
+
+        if clock.snapshot(at: now + lead).isMoving {
+            if followsHostClock {
+                // Moving text: frames get exact timestamps on a 60 Hz grid, slightly in the future.
+                // The layer shows each one at its moment, so timer jitter never reaches the screen.
+                let lastSlot = Int64(((now + lead) * rate).rounded(.down))
+                var slot = max(nextSlot, lastSlot - 1)
+                while slot <= lastSlot {
+                    let time = Double(slot) / rate
+                    let state = FloatingPrompter.frameState(clock.snapshot(at: time), toast: toastText, hint: hintText)
+                    enqueue(content: content, state: state, size: size, time: time, scheduled: true)
+                    slot += 1
+                }
+                nextSlot = lastSlot + 1
+            } else {
+                // Unknown layer clock: show every frame as soon as it is ready.
+                let state = FloatingPrompter.frameState(clock.snapshot(at: now), toast: toastText, hint: hintText)
+                enqueue(content: content, state: state, size: size, time: now, scheduled: false)
             }
-            nextSlot = lastSlot + 1
             lastSignature = nil
         } else {
             // Still text: draw only when something changed, plus a keep-alive twice a second.
@@ -518,11 +545,22 @@ extension FloatingPrompter: AVPictureInPictureControllerDelegate {
     }
 
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, failedToStartPictureInPictureWithError error: Error) {
+        let description = error.localizedDescription
         DispatchQueue.main.async {
+            if !self.retriedWithExclusiveAudio {
+                // One more try with an audio session that does not mix with other apps.
+                self.retriedWithExclusiveAudio = true
+                self.configureAudioSession(mixWithOthers: false)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    guard self.isStarting, !self.isActive else { return }
+                    pictureInPictureController.startPictureInPicture()
+                }
+                return
+            }
             self.isStarting = false
             self.pendingStart = false
             self.openCameraOnStart = false
-            self.message = "Окно не запустилось: \(error.localizedDescription)"
+            self.message = "Окно не запустилось: \(description)"
         }
     }
 

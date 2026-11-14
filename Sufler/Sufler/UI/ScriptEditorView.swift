@@ -65,7 +65,10 @@ struct ScriptEditorView: View {
         }
         .background(Theme.background.ignoresSafeArea())
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            bottomBar
+            // While typing, the keyboard needs the room; "Готово" on its toolbar brings the bar back.
+            if focusedField == nil {
+                bottomBar
+            }
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

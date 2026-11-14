@@ -7,6 +7,11 @@ on:
       - "Sufler/**"
       - ".github/workflows/sufler-ios.yml"
   workflow_dispatch:
+    inputs:
+      publish_pictures:
+        description: "Commit the screenshots of this run to Sufler/docs/ci on the same branch"
+        type: boolean
+        default: false
 
 concurrency:
   group: sufler-${{ github.ref }}
@@ -26,6 +31,8 @@ jobs:
     name: Build, test, screenshots
     runs-on: macos-latest
     timeout-minutes: 40
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -84,6 +91,22 @@ jobs:
           shoot 04-floating-playing 10 -sufler.screen floating -sufler.autoplay YES
           sips -Z 1300 build/screens/*.png > /dev/null
           ls -la build/screens build/frames
+
+      - name: Publish pictures to the branch
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_pictures
+        run: |
+          rm -rf Sufler/docs/ci
+          mkdir -p Sufler/docs/ci
+          for f in build/screens/*.png build/frames/*.png; do
+            [ -f "$f" ] || continue
+            sips -s format jpeg -s formatOptions 72 "$f" --out "Sufler/docs/ci/$(basename "${f%.png}").jpg" > /dev/null
+          done
+          ls -la Sufler/docs/ci
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Sufler/docs/ci
+          git commit -q -m "CI: pictures from run ${{ github.run_number }}" || { echo "nothing to commit"; exit 0; }
+          git push origin "HEAD:${GITHUB_REF_NAME}"
 
       - name: Unsigned IPA
         run: |
