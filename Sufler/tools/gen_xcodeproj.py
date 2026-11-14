@@ -17,7 +17,7 @@ PROJECT_DIR = ROOT / "Sufler.xcodeproj"
 APP_NAME = "Sufler"
 TEST_NAME = "SuflerTests"
 BUNDLE_ID = "com.blip5895516.sufler"
-DEPLOYMENT_TARGET = "16.0"
+DEPLOYMENT_TARGET = "16.4"
 MARKETING_VERSION = "1.0"
 BUILD_NUMBER = "1"
 

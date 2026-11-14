@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Hosts the layer that the floating window is made from.
+/// Hosts the preview layer, which is also the on-screen anchor of the floating window.
 struct FloatingSourceView: UIViewRepresentable {
     let view: SampleBufferView
 
@@ -16,6 +16,7 @@ struct FloatingScreen: View {
     @EnvironmentObject private var store: ScriptStore
     @EnvironmentObject private var settings: AppSettings
     @StateObject private var floating = FloatingPrompter()
+    @State private var showBackTapHelp = false
 
     private var script: Script? { store.script(with: scriptID) }
 
@@ -25,10 +26,11 @@ struct FloatingScreen: View {
                 preview
                 TransportBar(session: floating.session, floating: floating)
                 launchSection
+                windowCard
                 speedCard
                 appearanceCard
-                controlCard
                 howToCard
+                diagnosticsNote
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -48,6 +50,9 @@ struct FloatingScreen: View {
             floating.shutDown()
             UIApplication.shared.isIdleTimerDisabled = false
         }
+        .sheet(isPresented: $showBackTapHelp) {
+            BackTapHelpView()
+        }
     }
 
     // MARK: Preview
@@ -60,7 +65,7 @@ struct FloatingScreen: View {
                 .clipShape(shape)
                 .overlay(shape.stroke(Color.white.opacity(0.12), lineWidth: 1))
                 .overlay {
-                    if floating.isActive {
+                    if floating.isActive && settings.windowStyle == .player {
                         ZStack {
                             shape.fill(Color.black.opacity(0.78))
                             VStack(spacing: 8) {
@@ -117,6 +122,8 @@ struct FloatingScreen: View {
 
                 if floating.cameraNeedsManualOpen {
                     note("Камера сама не открылась. Смахните вверх и откройте её как обычно — окно останется поверх.")
+                } else if settings.autoStart {
+                    note("Текст поедет сам через \(settings.countdownSeconds) с после того, как вы уйдёте в Камеру.")
                 }
             } else {
                 Button {
@@ -151,6 +158,90 @@ struct FloatingScreen: View {
     }
 
     // MARK: Cards
+
+    private var windowCard: some View {
+        SettingsCard(title: "Окно и запуск") {
+            VStack(alignment: .leading, spacing: 6) {
+                Picker("Тип окна", selection: $settings.windowStyle) {
+                    ForEach(FloatingWindowStyle.allCases) { style in
+                        Text(style.title).tag(style)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text(settings.windowStyle.explanation)
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.tertiaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Toggle("Запускать текст, когда ухожу в Камеру", isOn: $settings.autoStart)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Обратный отсчёт перед стартом")
+                    .font(.system(size: 15))
+                    .foregroundColor(.white)
+                Picker("Обратный отсчёт", selection: $settings.countdownSeconds) {
+                    ForEach(AppSettings.Limits.countdownOptions, id: \.self) { seconds in
+                        Text(seconds == 0 ? "Нет" : "\(seconds) с").tag(seconds)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text("За это время успейте нажать запись и встать в кадр.")
+                    .font(.system(size: 12))
+                    .foregroundColor(Theme.tertiaryText)
+            }
+
+            Toggle("Сразу открывать Камеру", isOn: $settings.openCameraAfterStart)
+
+            if settings.windowStyle == .player {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Кнопки «15» в окне")
+                        .font(.system(size: 15))
+                        .foregroundColor(.white)
+                    Picker("Кнопки перемотки", selection: $settings.skipMode) {
+                        ForEach(FloatingSkipMode.allCases) { mode in
+                            Text(mode.title).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    Text(skipModeExplanation)
+                        .font(.system(size: 12))
+                        .foregroundColor(Theme.tertiaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Button {
+                showBackTapHelp = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "hand.tap.fill")
+                        .foregroundColor(Theme.accent)
+                    Text("Пауза и старт стуком по телефону")
+                        .foregroundColor(.white)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Theme.tertiaryText)
+                }
+                .font(.system(size: 15))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .tint(Theme.accent)
+    }
+
+    private var skipModeExplanation: String {
+        switch settings.skipMode {
+        case .auto:
+            return "Пока текст едет — делают его медленнее и быстрее. На паузе — листают по абзацам."
+        case .speed:
+            return "Всегда меняют скорость: левая медленнее, правая быстрее."
+        case .seek:
+            return "Всегда листают по абзацам: назад и вперёд."
+        }
+    }
 
     private var durationNote: String {
         let words = TextMetrics.wordCount(script?.text ?? "")
@@ -202,9 +293,10 @@ struct FloatingScreen: View {
                 Text("Для горизонтального видео текст поворачивается. Стрелка показывает, куда смотрит верх телефона.")
                     .font(.system(size: 12))
                     .foregroundColor(Theme.tertiaryText)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            if floating.isActive {
-                Text("Форму и поворот можно менять, но окно при этом закроется — запустите его заново.")
+            if floating.isActive && settings.windowStyle == .player {
+                Text("Если поменять форму или поворот, окно закроется — запустите его заново.")
                     .font(.system(size: 12))
                     .foregroundColor(Theme.accent)
             }
@@ -261,61 +353,46 @@ struct FloatingScreen: View {
         .tint(Theme.accent)
     }
 
-    private var controlCard: some View {
-        SettingsCard(title: "Управление") {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Обратный отсчёт перед стартом")
-                    .font(.system(size: 15))
-                    .foregroundColor(.white)
-                Picker("Обратный отсчёт", selection: $settings.countdownSeconds) {
-                    ForEach(AppSettings.Limits.countdownOptions, id: \.self) { seconds in
-                        Text(seconds == 0 ? "Нет" : "\(seconds) с").tag(seconds)
-                    }
-                }
-                .pickerStyle(.segmented)
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Кнопки «15» в окне")
-                    .font(.system(size: 15))
-                    .foregroundColor(.white)
-                Picker("Кнопки перемотки", selection: $settings.skipMode) {
-                    ForEach(FloatingSkipMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                Text(skipModeExplanation)
-                    .font(.system(size: 12))
-                    .foregroundColor(Theme.tertiaryText)
-            }
-
-            Toggle("Сразу открывать Камеру", isOn: $settings.openCameraAfterStart)
-        }
-        .tint(Theme.accent)
-    }
-
-    private var skipModeExplanation: String {
-        switch settings.skipMode {
-        case .auto:
-            return "Пока текст едет — делают его медленнее и быстрее. На паузе — листают по абзацам."
-        case .speed:
-            return "Всегда меняют скорость: левая медленнее, правая быстрее."
-        case .seek:
-            return "Всегда листают по абзацам: назад и вперёд."
-        }
-    }
-
     private var howToCard: some View {
         SettingsCard(title: "Как снимать") {
-            step(1, "Нажмите «Запустить поверх Камеры». Появится окно с текстом.")
-            step(2, "В Камере выберите «Видео». Окно перетащите пальцем ближе к объективу, двумя пальцами растяните.")
-            step(3, "Начните запись, коснитесь окна и нажмите ▶. После отсчёта текст поедет.")
-            step(4, "Окно видите только вы — в запись оно не попадает.")
+            HelpStep(number: 1, text: "Нажмите «Запустить поверх Камеры». Появится окно с текстом.")
+            HelpStep(number: 2, text: "В Камере выберите «Видео». Окно перетащите пальцем ближе к объективу, двумя пальцами растяните.")
+            if settings.windowStyle == .camera {
+                HelpStep(number: 3, text: "Начните запись. В окне идёт отсчёт — после него текст поедет сам.")
+                HelpStep(number: 4, text: "Чтобы остановить текст, вернитесь в приложение или настройте стук по телефону.")
+            } else {
+                HelpStep(number: 3, text: "Начните запись, коснитесь окна и нажмите ▶. После отсчёта текст поедет.")
+                HelpStep(number: 4, text: "Если при записи окно спряталось к краю — выберите тип «Для Камеры».")
+            }
+            HelpStep(number: 5, text: "Окно видите только вы — в запись оно не попадает.")
         }
     }
 
-    private func step(_ number: Int, _ text: String) -> some View {
+    @ViewBuilder
+    private var diagnosticsNote: some View {
+        if let diagnostics = floating.diagnostics {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("ПРОШЛЫЙ ЗАПУСК ОКНА")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Theme.tertiaryText)
+                Text(diagnostics)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(Theme.tertiaryText)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4)
+        }
+    }
+}
+
+/// A numbered instruction line.
+struct HelpStep: View {
+    let number: Int
+    let text: String
+
+    var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Text("\(number)")
                 .font(.system(size: 13, weight: .bold, design: .rounded))
@@ -327,6 +404,53 @@ struct FloatingScreen: View {
                 .foregroundColor(.white.opacity(0.88))
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+}
+
+/// Explains how to pause and resume the text by tapping the back of the phone.
+struct BackTapHelpView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 18) {
+                    Text("В окне «Для Камеры» кнопок нет, поэтому управлять текстом можно стуком по задней крышке iPhone — даже когда открыта Камера. Настраивается один раз.")
+                        .font(.system(size: 15))
+                        .foregroundColor(.white.opacity(0.88))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    SettingsCard(title: "1. Создайте команду") {
+                        HelpStep(number: 1, text: "Откройте приложение «Команды» и нажмите +.")
+                        HelpStep(number: 2, text: "Нажмите «Добавить действие», в поиске наберите «Суфлёр» и выберите «Старт или пауза суфлёра».")
+                        HelpStep(number: 3, text: "Нажмите «Готово». Команда сохранится.")
+                    }
+
+                    SettingsCard(title: "2. Назначьте её на стук") {
+                        HelpStep(number: 1, text: "Откройте Настройки → Универсальный доступ → Касание → Касание задней панели.")
+                        HelpStep(number: 2, text: "Выберите «Двойное касание» и в списке внизу отметьте свою команду.")
+                    }
+
+                    SettingsCard(title: "Что ещё можно назначить") {
+                        Text("Таким же способом доступны действия «В начало текста», «Абзац назад», «Суфлёр быстрее» и «Суфлёр медленнее» — например, на тройное касание. На iPhone с кнопкой действия их можно повесить и на неё.")
+                            .font(.system(size: 15))
+                            .foregroundColor(.white.opacity(0.88))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(16)
+            }
+            .background(Theme.background.ignoresSafeArea())
+            .navigationTitle("Стук по телефону")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Готово") { dismiss() }
+                        .font(.system(size: 16, weight: .semibold))
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
     }
 }
 

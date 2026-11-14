@@ -216,6 +216,57 @@ final class FloatingFrameRendererTests: XCTestCase {
         XCTAssertEqual(Double(pixelStatistics(counterClockwise).white), uprightWhite, accuracy: uprightWhite * 0.10)
     }
 
+    /// The camera-friendly window draws through a plain graphics context of whatever size the
+    /// system gives it, which rarely matches the chosen shape exactly.
+    func testDrawsIntoAnyContextWithoutClipping() throws {
+        let renderer = FloatingFrameRenderer()
+        let width = 1000
+        let height = 640 // a little taller than 16:9
+        let bytesPerRow = width * 4
+        var pixels = [UInt8](repeating: 0, count: bytesPerRow * height)
+        let stats: (white: Int, accent: Int, edge: [UInt8]) = try pixels.withUnsafeMutableBytes { raw in
+            let context = try XCTUnwrap(CGContext(
+                data: raw.baseAddress,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: bytesPerRow,
+                space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+            ))
+            // The same flip a UIView context already has: origin at the top-left corner.
+            context.translateBy(x: 0, y: CGFloat(height))
+            context.scaleBy(x: 1, y: -1)
+            renderer.draw(content: content(), state: state(progress: 0.2), in: context,
+                          size: CGSize(width: width, height: height), pixelsPerUnit: 1)
+            let bytes = raw.bindMemory(to: UInt8.self)
+            var white = 0
+            var accent = 0
+            for index in stride(from: 0, to: bytes.count, by: 4) {
+                let blue = Int(bytes[index]), green = Int(bytes[index + 1]), red = Int(bytes[index + 2])
+                if red > 215 && green > 215 && blue > 215 {
+                    white += 1
+                } else if red > 215 && green > 140 && green < 205 && blue < 90 {
+                    accent += 1
+                }
+            }
+            return (white, accent, [bytes[0], bytes[1], bytes[2]])
+        }
+        XCTAssertGreaterThan(stats.white, 3000)
+        XCTAssertGreaterThan(stats.accent, 100)
+        // The spare strip outside the text area is filled with the window background, not left empty.
+        XCTAssertEqual(Double(stats.edge[2]), 9, accuracy: 3)
+        XCTAssertEqual(Double(stats.edge[0]), 12, accuracy: 3)
+    }
+
+    func testSilentAudioIsAValidWaveFile() {
+        let data = KeepAlive.silentWAV(seconds: 1, sampleRate: 8000)
+        XCTAssertEqual(data.count, 44 + 16_000)
+        XCTAssertEqual(String(data: data.prefix(4), encoding: .ascii), "RIFF")
+        XCTAssertEqual(String(data: data.subdata(in: 8..<12), encoding: .ascii), "WAVE")
+        XCTAssertTrue(data.suffix(16_000).allSatisfy { $0 == 0 })
+    }
+
     func testCanvasKeepsItsArea() {
         for aspect in FloatingAspect.allCases {
             let size = FloatingFrameRenderer.canvasSize(aspect: aspect.ratio)
@@ -273,9 +324,13 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(settings.wordsPerMinute, 120)
         XCTAssertEqual(settings.aspect, .wide)
         XCTAssertEqual(settings.orientation, .portrait)
-        XCTAssertEqual(settings.countdownSeconds, 3)
+        XCTAssertEqual(settings.countdownSeconds, 10)
+        XCTAssertEqual(settings.windowStyle, .camera)
+        XCTAssertTrue(settings.autoStart)
 
         settings.wordsPerMinute = 150
+        settings.windowStyle = .player
+        settings.autoStart = false
         settings.aspect = .tall
         settings.orientation = .landscapeTopLeft
         settings.countdownSeconds = 5
@@ -285,6 +340,8 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(reloaded.aspect, .tall)
         XCTAssertEqual(reloaded.orientation, .landscapeTopLeft)
         XCTAssertEqual(reloaded.countdownSeconds, 5)
+        XCTAssertEqual(reloaded.windowStyle, .player)
+        XCTAssertFalse(reloaded.autoStart)
     }
 
     func testSpeedStaysInsideLimits() {

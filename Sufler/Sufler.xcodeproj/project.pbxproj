@@ -7,13 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D7EA701D3F294A51427DA5F8 /* Intents.swift */ = {isa = PBXBuildFile; fileRef = FB9863AB1ED10BDC905CAF1E /* Intents.swift */; };
 		13E013C9165C9459BDBC7E5A /* SuflerApp.swift */ = {isa = PBXBuildFile; fileRef = ED55964DCC5AC7B9FE35FC4B /* SuflerApp.swift */; };
 		3CD54608B4E41EC84F7EF4BF /* PrompterSession.swift */ = {isa = PBXBuildFile; fileRef = 7EFFB5CDA818B4858CD50EAB /* PrompterSession.swift */; };
 		33F15D4BDCCF03FA3D3E144A /* ScriptLayout.swift */ = {isa = PBXBuildFile; fileRef = 41DFC3715CFB4FAC28F1B70A /* ScriptLayout.swift */; };
 		A23CCE40F559E846DCD4E11F /* ScrollClock.swift */ = {isa = PBXBuildFile; fileRef = AC79450582E4FE936D9BD59E /* ScrollClock.swift */; };
 		53BA770A20255B50903FFFB4 /* TextMetrics.swift */ = {isa = PBXBuildFile; fileRef = B5F4406E9A85D38D97B2A6F3 /* TextMetrics.swift */; };
+		8EA29CF7ECB32E4C22E2ED8E /* FloatingCanvasView.swift */ = {isa = PBXBuildFile; fileRef = 3AD3D50F6B6B2150AFBABE5C /* FloatingCanvasView.swift */; };
 		20B8D74EC158DCB188FAD445 /* FloatingFrameRenderer.swift */ = {isa = PBXBuildFile; fileRef = 501BA64A120E6A667E170A3C /* FloatingFrameRenderer.swift */; };
 		01CF80EF8A0460C640125F81 /* FloatingPrompter.swift */ = {isa = PBXBuildFile; fileRef = F5CB618AC11A2EADED8FBFAD /* FloatingPrompter.swift */; };
+		3881B35A6BBCAB4A57D18FDE /* KeepAlive.swift */ = {isa = PBXBuildFile; fileRef = 24CCB62AE0C1B876DC407C07 /* KeepAlive.swift */; };
 		13D051F9FEC0104E8AABFA0F /* AppSettings.swift */ = {isa = PBXBuildFile; fileRef = ADF86174EB35BD07D1B370B3 /* AppSettings.swift */; };
 		6DAE20B5227AB1D0F1C046FA /* Script.swift */ = {isa = PBXBuildFile; fileRef = 79BA03EC160DCB7E84DCF6D6 /* Script.swift */; };
 		C348196E7A999923CFE7D15B /* ScriptStore.swift */ = {isa = PBXBuildFile; fileRef = 9A7509BE21383551955FC738 /* ScriptStore.swift */; };
@@ -39,13 +42,16 @@
 /* Begin PBXFileReference section */
 		F91288DB192297DC903FE08C /* Sufler.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sufler.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D5400806AFA697D620185B72 /* SuflerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SuflerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FB9863AB1ED10BDC905CAF1E /* Intents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Intents.swift; sourceTree = "<group>"; };
 		ED55964DCC5AC7B9FE35FC4B /* SuflerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuflerApp.swift; sourceTree = "<group>"; };
 		7EFFB5CDA818B4858CD50EAB /* PrompterSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrompterSession.swift; sourceTree = "<group>"; };
 		41DFC3715CFB4FAC28F1B70A /* ScriptLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptLayout.swift; sourceTree = "<group>"; };
 		AC79450582E4FE936D9BD59E /* ScrollClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollClock.swift; sourceTree = "<group>"; };
 		B5F4406E9A85D38D97B2A6F3 /* TextMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextMetrics.swift; sourceTree = "<group>"; };
+		3AD3D50F6B6B2150AFBABE5C /* FloatingCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingCanvasView.swift; sourceTree = "<group>"; };
 		501BA64A120E6A667E170A3C /* FloatingFrameRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingFrameRenderer.swift; sourceTree = "<group>"; };
 		F5CB618AC11A2EADED8FBFAD /* FloatingPrompter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingPrompter.swift; sourceTree = "<group>"; };
+		24CCB62AE0C1B876DC407C07 /* KeepAlive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeepAlive.swift; sourceTree = "<group>"; };
 		ADF86174EB35BD07D1B370B3 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		79BA03EC160DCB7E84DCF6D6 /* Script.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Script.swift; sourceTree = "<group>"; };
 		9A7509BE21383551955FC738 /* ScriptStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptStore.swift; sourceTree = "<group>"; };
@@ -112,6 +118,7 @@
 		4333883373E4B23925189C93 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				FB9863AB1ED10BDC905CAF1E /* Intents.swift */,
 				ED55964DCC5AC7B9FE35FC4B /* SuflerApp.swift */,
 			);
 			path = App;
@@ -131,8 +138,10 @@
 		9E9F11507674B90711349CD8 /* Floating */ = {
 			isa = PBXGroup;
 			children = (
+				3AD3D50F6B6B2150AFBABE5C /* FloatingCanvasView.swift */,
 				501BA64A120E6A667E170A3C /* FloatingFrameRenderer.swift */,
 				F5CB618AC11A2EADED8FBFAD /* FloatingPrompter.swift */,
+				24CCB62AE0C1B876DC407C07 /* KeepAlive.swift */,
 			);
 			path = Floating;
 			sourceTree = "<group>";
@@ -266,13 +275,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D7EA701D3F294A51427DA5F8 /* Intents.swift */,
 				13E013C9165C9459BDBC7E5A /* SuflerApp.swift */,
 				3CD54608B4E41EC84F7EF4BF /* PrompterSession.swift */,
 				33F15D4BDCCF03FA3D3E144A /* ScriptLayout.swift */,
 				A23CCE40F559E846DCD4E11F /* ScrollClock.swift */,
 				53BA770A20255B50903FFFB4 /* TextMetrics.swift */,
+				8EA29CF7ECB32E4C22E2ED8E /* FloatingCanvasView.swift */,
 				20B8D74EC158DCB188FAD445 /* FloatingFrameRenderer.swift */,
 				01CF80EF8A0460C640125F81 /* FloatingPrompter.swift */,
+				3881B35A6BBCAB4A57D18FDE /* KeepAlive.swift */,
 				13D051F9FEC0104E8AABFA0F /* AppSettings.swift */,
 				6DAE20B5227AB1D0F1C046FA /* Script.swift */,
 				C348196E7A999923CFE7D15B /* ScriptStore.swift */,
@@ -355,7 +367,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -413,7 +425,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;

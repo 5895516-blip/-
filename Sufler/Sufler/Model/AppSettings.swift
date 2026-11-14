@@ -102,6 +102,35 @@ enum FloatingOrientation: String, CaseIterable, Identifiable {
     var isLandscape: Bool { self != .portrait }
 }
 
+/// Which kind of system window carries the text.
+///
+/// iOS offers two kinds of Picture in Picture and treats them differently once another app
+/// starts recording video.
+enum FloatingWindowStyle: String, CaseIterable, Identifiable {
+    /// A video-call window. iOS leaves it alone while the Camera records, but it has no buttons.
+    case camera
+    /// A video-player window with play/pause and skip buttons. iOS tends to pause and hide it
+    /// when a recording starts.
+    case player
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .camera: return "Для Камеры"
+        case .player: return "С кнопками"
+        }
+    }
+
+    var explanation: String {
+        switch self {
+        case .camera:
+            return "Окно как у видеозвонка: iOS не гасит его, когда Камера начинает запись. Кнопок внутри нет — текст стартует сам после отсчёта."
+        case .player:
+            return "Окно как у видео: внутри есть кнопки ▶ и «15». Но когда Камера начинает запись, iOS часто ставит такое окно на паузу и прячет к краю экрана."
+        }
+    }
+}
+
 /// What the ⏪ ⏩ buttons of the floating window do.
 enum FloatingSkipMode: String, CaseIterable, Identifiable {
     /// Speed while the text is moving, paragraph jumps while it is paused.
@@ -130,7 +159,8 @@ final class AppSettings: ObservableObject {
         static let wordsPerMinute: ClosedRange<Double> = 40...300
         static let fontSize: ClosedRange<Double> = 16...52
         static let lineSpacing: ClosedRange<Double> = 1.0...1.8
-        static let countdownOptions = [0, 3, 5, 10]
+        static let countdownOptions = [0, 3, 5, 10, 15]
+        static let defaultCountdown = 10
         static let speedStep: Double = 5
         static let floatingSpeedStep: Double = 10
     }
@@ -149,6 +179,8 @@ final class AppSettings: ObservableObject {
         static let orientation = "floatingOrientation"
         static let skipMode = "floatingSkipMode"
         static let openCameraAfterStart = "openCameraAfterStart"
+        static let windowStyle = "floatingWindowStyle"
+        static let autoStart = "autoStartOnLeave"
     }
 
     private let defaults: UserDefaults
@@ -168,6 +200,9 @@ final class AppSettings: ObservableObject {
     @Published var skipMode: FloatingSkipMode { didSet { defaults.set(skipMode.rawValue, forKey: Key.skipMode) } }
     /// Jump to the system Camera right after the floating window appears.
     @Published var openCameraAfterStart: Bool { didSet { defaults.set(openCameraAfterStart, forKey: Key.openCameraAfterStart) } }
+    @Published var windowStyle: FloatingWindowStyle { didSet { defaults.set(windowStyle.rawValue, forKey: Key.windowStyle) } }
+    /// Start scrolling (after the countdown) as soon as the user leaves the app with the window open.
+    @Published var autoStart: Bool { didSet { defaults.set(autoStart, forKey: Key.autoStart) } }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -180,12 +215,14 @@ final class AppSettings: ObservableObject {
         boldText = AppSettings.bool(defaults, Key.boldText, true)
         showReadingGuide = AppSettings.bool(defaults, Key.showReadingGuide, true)
         dimReadLines = AppSettings.bool(defaults, Key.dimReadLines, true)
-        let storedCountdown = (defaults.object(forKey: Key.countdownSeconds) as? Int) ?? 3
-        countdownSeconds = Limits.countdownOptions.contains(storedCountdown) ? storedCountdown : 3
+        let storedCountdown = (defaults.object(forKey: Key.countdownSeconds) as? Int) ?? Limits.defaultCountdown
+        countdownSeconds = Limits.countdownOptions.contains(storedCountdown) ? storedCountdown : Limits.defaultCountdown
         aspect = FloatingAspect(rawValue: defaults.string(forKey: Key.aspect) ?? "") ?? .wide
         orientation = FloatingOrientation(rawValue: defaults.string(forKey: Key.orientation) ?? "") ?? .portrait
         skipMode = FloatingSkipMode(rawValue: defaults.string(forKey: Key.skipMode) ?? "") ?? .auto
         openCameraAfterStart = AppSettings.bool(defaults, Key.openCameraAfterStart, true)
+        windowStyle = FloatingWindowStyle(rawValue: defaults.string(forKey: Key.windowStyle) ?? "") ?? .camera
+        autoStart = AppSettings.bool(defaults, Key.autoStart, true)
     }
 
     // MARK: Derived values

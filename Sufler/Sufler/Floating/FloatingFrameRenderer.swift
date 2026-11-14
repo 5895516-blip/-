@@ -119,31 +119,54 @@ final class FloatingFrameRenderer {
             return nil
         }
 
-        let canvas = FloatingFrameRenderer.canvasSize(aspect: content.canvasAspect)
-        let turned = content.quarterTurns != 0
-        // Pixels per point of the canvas.
-        let scale = CGFloat(turned ? pixelHeight : pixelWidth) / canvas.width
-
         // Top-left origin, y grows downwards, units are pixels.
         context.translateBy(x: 0, y: CGFloat(pixelHeight))
         context.scaleBy(x: 1, y: -1)
+        draw(content: content, state: state, in: context,
+             size: CGSize(width: pixelWidth, height: pixelHeight), pixelsPerUnit: 1)
+        return buffer
+    }
+
+    /// Draws one frame into any context whose origin is the top-left corner with y growing
+    /// downwards (a pixel buffer after flipping, or a `UIView` in `draw(_:)`).
+    ///
+    /// - Parameters:
+    ///   - size: the drawable area in context units.
+    ///   - pixelsPerUnit: resolution of the context, used to keep resting text on whole pixels.
+    func draw(content: FloatingContent, state: FloatingFrameState, in context: CGContext, size: CGSize, pixelsPerUnit: CGFloat) {
+        guard size.width > 1, size.height > 1 else { return }
+        context.saveGState()
+        defer { context.restoreGState() }
+
+        context.setFillColor(PrompterPalette.floatingBackground)
+        context.fill(CGRect(origin: .zero, size: size))
+
+        let canvas = FloatingFrameRenderer.canvasSize(aspect: content.canvasAspect)
+        let turned = content.quarterTurns != 0
+        // The drawable area as the reader sees it once the phone is turned.
+        let visible = turned ? CGSize(width: size.height, height: size.width) : size
+        // The canvas is fitted inside and centred, so a window whose shape is slightly off
+        // (the system rounds window sizes) never clips or stretches the text.
+        let scale = min(visible.width / canvas.width, visible.height / canvas.height)
+
         // Turn the canvas for horizontal shooting.
         if content.quarterTurns > 0 {
-            context.translateBy(x: CGFloat(pixelWidth), y: 0)
+            context.translateBy(x: size.width, y: 0)
             context.rotate(by: .pi / 2)
         } else if content.quarterTurns < 0 {
-            context.translateBy(x: 0, y: CGFloat(pixelHeight))
+            context.translateBy(x: 0, y: size.height)
             context.rotate(by: -.pi / 2)
         }
+        context.translateBy(x: (visible.width - canvas.width * scale) / 2, y: (visible.height - canvas.height * scale) / 2)
         context.scaleBy(x: scale, y: scale)
+        context.clip(to: CGRect(origin: .zero, size: canvas))
         context.setShouldSmoothFonts(false)
         context.setAllowsFontSubpixelPositioning(true)
         context.setShouldSubpixelPositionFonts(true)
         context.setAllowsFontSubpixelQuantization(false)
         context.setShouldSubpixelQuantizeFonts(false)
 
-        draw(content: content, state: state, canvas: canvas, scale: scale, in: context)
-        return buffer
+        draw(content: content, state: state, canvas: canvas, scale: scale * pixelsPerUnit, in: context)
     }
 
     private func draw(content: FloatingContent, state: FloatingFrameState, canvas: CGSize, scale: CGFloat, in context: CGContext) {

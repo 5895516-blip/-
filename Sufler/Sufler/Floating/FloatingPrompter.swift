@@ -3,8 +3,11 @@ import AVKit
 import Combine
 import UIKit
 
-/// A view backed by `AVSampleBufferDisplayLayer`: the on-screen source of the floating window.
+/// A view backed by `AVSampleBufferDisplayLayer`: the preview inside the app and the on-screen
+/// anchor of the floating window.
 final class SampleBufferView: UIView {
+    var onMoveToWindow: (() -> Void)?
+
     override class var layerClass: AnyClass {
         AVSampleBufferDisplayLayer.self
     }
@@ -13,13 +16,26 @@ final class SampleBufferView: UIView {
         // The layer class is fixed above, so the cast cannot fail.
         layer as! AVSampleBufferDisplayLayer
     }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil {
+            onMoveToWindow?()
+        }
+    }
 }
 
 /// Shows the script in a Picture in Picture window that floats over any other app.
 ///
-/// iOS only lets video float over other apps, so the text is drawn into video frames 60 times a
-/// second and fed to an `AVSampleBufferDisplayLayer`. The system window gives us three buttons:
-/// play/pause and the two skip buttons, which are used for speed and paragraph jumps.
+/// Two kinds of system window are supported (see `FloatingWindowStyle`):
+///
+/// - **camera**: a video-call window hosting an ordinary view (`FloatingCanvasView`). iOS keeps
+///   it running while the Camera records. It has no buttons, so scrolling starts by itself after
+///   the countdown, and Shortcuts actions (Back Tap, Action Button) can pause and resume it.
+/// - **player**: a video-player window fed with frames through `AVSampleBufferDisplayLayer`.
+///   It has play/pause and skip buttons, but iOS tends to pause and hide it once a recording starts.
+///
+/// The preview inside the app always uses the sample-buffer layer.
 final class FloatingPrompter: NSObject, ObservableObject {
 
     /// `true` while the floating window is on screen.
@@ -30,23 +46,34 @@ final class FloatingPrompter: NSObject, ObservableObject {
     @Published var message: String?
     /// Set when the system Camera could not be opened automatically.
     @Published private(set) var cameraNeedsManualOpen = false
+    /// One-line report about the last time the window was open, for troubleshooting.
+    @Published private(set) var diagnostics: String? = UserDefaults.standard.string(forKey: FloatingPrompter.diagnosticsKey)
 
     let session = PrompterSession()
     let sourceView: SampleBufferView
 
+    private static let diagnosticsKey = "sufler.lastWindowSession"
+
     private let settings: AppSettings
     private let displayLayer: AVSampleBufferDisplayLayer
     private var controller: AVPictureInPictureController?
+    private var controllerStyle: FloatingWindowStyle?
     private var possibleObservation: NSKeyValueObservation?
     private var cancellables = Set<AnyCancellable>()
+    private var observers: [NSObjectProtocol] = []
     private var pendingStart = false
     private var openCameraOnStart = false
     private var retriedWithExclusiveAudio = false
     private var startAttempt = 0
     private var housekeeping: Timer?
     private var isPrepared = false
+    private var activeSince: Date?
 
-    // MARK: Render queue state
+    // Camera-friendly window
+    private let callController = AVPictureInPictureVideoCallViewController()
+    private let canvasView = FloatingCanvasView()
+
+    // MARK: Render queue state (preview and player window)
 
     private struct TimedMessage {
         var text: String
@@ -58,6 +85,15 @@ final class FloatingPrompter: NSObject, ObservableObject {
         var contentVersion: Int
         var width: Int
         var height: Int
+    }
+
+    private struct SharedState {
+        var content: FloatingContent
+        var version: Int
+        var renderWidth: Int?
+        var toast: String?
+        var hint: String?
+        var previewPaused: Bool
     }
 
     private let renderQueue = DispatchQueue(label: "sufler.floating.render", qos: .userInteractive)
@@ -78,6 +114,11 @@ final class FloatingPrompter: NSObject, ObservableObject {
     private var toast: TimedMessage?
     private var hint: TimedMessage?
     private var totalDuration: Double = 1
+    private var isInBackground = false
+    private var sharedStyle: FloatingWindowStyle?
+    private var framesEnqueued = 0
+    private var framesEnqueuedInBackground = 0
+    private var layerRecoveries = 0
 
     /// Frames are prepared this long before they are shown, which hides timer jitter.
     private static let lead: CFTimeInterval = 2.0 / 60.0
@@ -93,6 +134,19 @@ final class FloatingPrompter: NSObject, ObservableObject {
 
         displayLayer.videoGravity = .resizeAspect
         sourceView.backgroundColor = UIColor(cgColor: PrompterPalette.floatingBackground)
+        sourceView.onMoveToWindow = { [weak self] in
+            self?.makeControllerIfNeeded()
+        }
+
+        callController.view.backgroundColor = UIColor(cgColor: PrompterPalette.floatingBackground)
+        canvasView.frame = callController.view.bounds
+        canvasView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        callController.view.addSubview(canvasView)
+        canvasView.frameProvider = { [weak self] time in
+            self?.frame(at: time)
+        }
+        updateCallWindowSize()
+
         session.bind(to: settings)
 
         // `objectWillChange` fires before the value changes, so read the new values a moment later.
@@ -106,12 +160,24 @@ final class FloatingPrompter: NSObject, ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] phase in self?.phaseChanged(phase) }
             .store(in: &cancellables)
+
+        let center = NotificationCenter.default
+        let backgroundObserver = center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.appDidEnterBackground()
+        }
+        let foregroundObserver = center.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.appWillEnterForeground()
+        }
+        observers = [backgroundObserver, foregroundObserver]
     }
 
     deinit {
         timer?.cancel()
         housekeeping?.invalidate()
         possibleObservation?.invalidate()
+        for observer in observers {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     // MARK: Lifecycle
@@ -120,24 +186,33 @@ final class FloatingPrompter: NSObject, ObservableObject {
     func prepare(text: String) {
         session.load(text: text)
         syncContent()
+        PrompterRemote.current = self
         guard !isPrepared else { return }
         isPrepared = true
-        configureAudioSession()
+        KeepAlive.activateSession()
         startRendering()
-        makeControllerIfNeeded()
+        // The window needs its anchor view on screen, which happens right after this call.
+        DispatchQueue.main.async { [weak self] in
+            self?.makeControllerIfNeeded()
+        }
     }
 
     /// Closes the window and stops drawing. Call when the screen goes away.
     func shutDown() {
         isPrepared = false
         pendingStart = false
+        if PrompterRemote.current === self {
+            PrompterRemote.current = nil
+        }
         if let controller, controller.isPictureInPictureActive {
             controller.stopPictureInPicture()
         }
         session.pause()
         stopRendering()
+        canvasView.stop()
         housekeeping?.invalidate()
         housekeeping = nil
+        KeepAlive.shared.stop()
         try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
     }
 
@@ -153,13 +228,15 @@ final class FloatingPrompter: NSObject, ObservableObject {
         }
         makeControllerIfNeeded()
         guard let controller else {
-            message = "Не удалось подготовить плавающее окно."
+            message = "Не удалось подготовить плавающее окно. Закройте этот экран и откройте снова."
             return
         }
         if controller.isPictureInPictureActive {
             if openCamera { openSystemCamera() }
             return
         }
+        KeepAlive.activateSession()
+        KeepAlive.shared.start()
         openCameraOnStart = openCamera
         isStarting = true
         retriedWithExclusiveAudio = false
@@ -168,13 +245,13 @@ final class FloatingPrompter: NSObject, ObservableObject {
         if controller.isPictureInPicturePossible {
             controller.startPictureInPicture()
         } else {
-            // The layer needs a first frame; start as soon as the system is ready.
+            // The system may need a moment (a first frame, an active audio session).
             pendingStart = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
                 guard let self, self.startAttempt == attempt, self.pendingStart else { return }
                 // Still not possible: some iOS versions want an audio session that does not mix.
                 self.retriedWithExclusiveAudio = true
-                self.configureAudioSession(mixWithOthers: false)
+                KeepAlive.activateSession(mixWithOthers: false)
             }
         }
         // Whatever happens, never leave the button stuck in the "starting" state.
@@ -183,6 +260,7 @@ final class FloatingPrompter: NSObject, ObservableObject {
             self.pendingStart = false
             self.isStarting = false
             self.openCameraOnStart = false
+            KeepAlive.shared.stop()
             self.message = "Окно не запустилось. Проверьте: Настройки → Основные → «Картинка в картинке» — и попробуйте ещё раз."
         }
     }
@@ -203,7 +281,7 @@ final class FloatingPrompter: NSObject, ObservableObject {
         }
     }
 
-    // MARK: Transport used by the in-app buttons
+    // MARK: Transport (in-app buttons, window buttons and Shortcuts actions)
 
     func togglePlayback() {
         session.toggle()
@@ -211,7 +289,7 @@ final class FloatingPrompter: NSObject, ObservableObject {
 
     func restart() {
         session.restart()
-        controller?.invalidatePlaybackState()
+        refreshPlayerState()
     }
 
     /// Jumps to the next or previous paragraph.
@@ -223,7 +301,7 @@ final class FloatingPrompter: NSObject, ObservableObject {
             let target = self.renderer.paragraphProgress(for: content, from: current, forward: forward)
             DispatchQueue.main.async {
                 self.session.seek(to: target)
-                self.controller?.invalidatePlaybackState()
+                self.refreshPlayerState()
             }
         }
     }
@@ -234,6 +312,33 @@ final class FloatingPrompter: NSObject, ObservableObject {
         let newValue = min(limits.upperBound, max(limits.lowerBound, settings.wordsPerMinute + delta))
         settings.wordsPerMinute = newValue
         showToast("Скорость \(Int(newValue))")
+    }
+
+    // MARK: Leaving and returning to the app
+
+    private func appDidEnterBackground() {
+        lock.lock()
+        isInBackground = true
+        lock.unlock()
+        autoStartIfNeeded()
+    }
+
+    private func appWillEnterForeground() {
+        lock.lock()
+        isInBackground = false
+        lock.unlock()
+        if isActive {
+            // Back in the app: stop the text so nothing runs away while settings are changed.
+            session.pause()
+        }
+    }
+
+    /// With the window open and the app left behind (the user is in the Camera now), the text
+    /// starts by itself after the countdown.
+    private func autoStartIfNeeded() {
+        guard isActive, settings.autoStart, session.hasText, !session.isActive else { return }
+        guard UIApplication.shared.applicationState == .background else { return }
+        session.play()
     }
 
     // MARK: Content
@@ -272,13 +377,47 @@ final class FloatingPrompter: NSObject, ObservableObject {
         totalDuration = duration
         lock.unlock()
 
-        if shapeChanged, let controller, controller.isPictureInPictureActive {
-            // The window cannot change its shape on the fly: close it, the user reopens it.
-            controller.stopPictureInPicture()
+        if shapeChanged {
+            updateCallWindowSize()
+            if controllerStyle == .player, let controller, controller.isPictureInPictureActive {
+                // A player window cannot change its shape on the fly: close it, the user reopens it.
+                controller.stopPictureInPicture()
+            }
+        }
+        if controllerStyle != settings.windowStyle {
+            if let controller, controller.isPictureInPictureActive {
+                // The new kind of window is set up as soon as this one has closed.
+                controller.stopPictureInPicture()
+            } else {
+                makeControllerIfNeeded()
+            }
         }
         if durationChanged {
-            controller?.invalidatePlaybackState()
+            refreshPlayerState()
         }
+    }
+
+    /// Reads everything a frame needs in one locked step. Expired messages are dropped.
+    private func readShared(at time: CFTimeInterval) -> SharedState {
+        lock.lock()
+        defer { lock.unlock() }
+        if let current = toast, current.until <= time { toast = nil }
+        if let current = hint, current.until <= time { hint = nil }
+        return SharedState(
+            content: content,
+            version: contentVersion,
+            renderWidth: renderWidth,
+            toast: toast?.text,
+            hint: hint?.text,
+            previewPaused: isInBackground && sharedStyle != .player
+        )
+    }
+
+    /// The frame of the camera-friendly window for a given moment. Main thread.
+    private func frame(at time: CFTimeInterval) -> (content: FloatingContent, version: Int, state: FloatingFrameState) {
+        let shared = readShared(at: time)
+        let state = FloatingPrompter.frameState(session.clock.snapshot(at: time), toast: shared.toast, hint: shared.hint)
+        return (shared.content, shared.version, state)
     }
 
     private func showToast(_ text: String, duration: CFTimeInterval = 1.6) {
@@ -294,71 +433,131 @@ final class FloatingPrompter: NSObject, ObservableObject {
     }
 
     private func phaseChanged(_ phase: PrompterSession.Phase) {
-        controller?.invalidatePlaybackState()
-        guard isActive else {
+        refreshPlayerState()
+        guard isActive, let style = controllerStyle else {
             showHint(nil)
             return
         }
-        switch phase {
-        case .playing:
-            showHint(settings.skipMode == .seek ? "Кнопки «15» листают абзацы" : "Кнопки «15» меняют скорость")
-        case .idle:
-            showHint(settings.skipMode == .speed ? "Кнопки «15» меняют скорость" : "Кнопки «15» листают абзацы")
-        case .countdown, .finished:
-            showHint(nil)
+        switch style {
+        case .player:
+            switch phase {
+            case .playing:
+                showHint(settings.skipMode == .seek ? "Кнопки «15» листают абзацы" : "Кнопки «15» меняют скорость")
+            case .idle:
+                showHint(settings.skipMode == .speed ? "Кнопки «15» меняют скорость" : "Кнопки «15» листают абзацы")
+            case .countdown, .finished:
+                showHint(nil)
+            }
+        case .camera:
+            switch phase {
+            case .idle:
+                showHint(settings.autoStart ? "Откройте Камеру — текст поедет сам" : "Старт — кнопкой в приложении", duration: 12)
+            case .playing, .countdown, .finished:
+                showHint(nil)
+            }
         }
     }
 
     // MARK: Picture in Picture set-up
 
-    private func configureAudioSession(mixWithOthers: Bool = true) {
-        // Picture in Picture requires the playback category. `mixWithOthers` keeps the user's
-        // music playing and lets the Camera take the microphone without a conflict.
-        let audioSession = AVAudioSession.sharedInstance()
-        do {
-            try audioSession.setCategory(.playback, mode: .moviePlayback, options: mixWithOthers ? [.mixWithOthers] : [])
-            try audioSession.setActive(true)
-        } catch {
-            try? audioSession.setCategory(.playback)
-            try? audioSession.setActive(true)
+    private func updateCallWindowSize() {
+        let ratio = max(0.2, min(5, currentContent().windowRatio))
+        let size = ratio >= 1
+            ? CGSize(width: 360, height: (360 / ratio).rounded())
+            : CGSize(width: (360 * ratio).rounded(), height: 360)
+        callController.preferredContentSize = size
+        if !isActive {
+            // Give the view a real size before the window opens so the first frame is laid out.
+            callController.view.frame = CGRect(origin: .zero, size: size)
+            canvasView.frame = callController.view.bounds
         }
     }
 
     private func makeControllerIfNeeded() {
-        guard controller == nil, isSupported else { return }
-        let source = AVPictureInPictureController.ContentSource(
-            sampleBufferDisplayLayer: displayLayer,
-            playbackDelegate: self
-        )
+        guard isSupported else { return }
+        let style = settings.windowStyle
+        if controller != nil, controllerStyle == style { return }
+        if let controller, controller.isPictureInPictureActive { return }
+
+        let source: AVPictureInPictureController.ContentSource
+        switch style {
+        case .camera:
+            // A video-call window is anchored to a view that must already be on screen.
+            guard sourceView.window != nil else { return }
+            updateCallWindowSize()
+            source = AVPictureInPictureController.ContentSource(
+                activeVideoCallSourceView: sourceView,
+                contentViewController: callController
+            )
+        case .player:
+            source = AVPictureInPictureController.ContentSource(
+                sampleBufferDisplayLayer: displayLayer,
+                playbackDelegate: self
+            )
+        }
+
+        possibleObservation?.invalidate()
         let newController = AVPictureInPictureController(contentSource: source)
         newController.delegate = self
         newController.requiresLinearPlayback = false
         newController.canStartPictureInPictureAutomaticallyFromInline = true
         controller = newController
+        controllerStyle = style
+        lock.lock()
+        sharedStyle = style
+        lock.unlock()
         possibleObservation = newController.observe(\.isPictureInPicturePossible, options: [.new]) { [weak self] observed, _ in
             let possible = observed.isPictureInPicturePossible
             DispatchQueue.main.async {
-                guard let self, possible, self.pendingStart else { return }
+                guard let self, possible, self.pendingStart, self.controller === observed else { return }
                 self.pendingStart = false
                 observed.startPictureInPicture()
             }
         }
     }
 
+    /// Tells the player window that position or play state changed.
+    private func refreshPlayerState() {
+        guard controllerStyle == .player else { return }
+        controller?.invalidatePlaybackState()
+    }
+
     private func startHousekeeping() {
         housekeeping?.invalidate()
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             guard let self, self.isActive else { return }
-            // While the text stands still the system clock keeps running; refresh the timeline.
+            KeepAlive.shared.restartIfNeeded()
+            // While the text stands still the layer clock keeps running; refresh the timeline.
             if !self.session.clock.snapshot(at: ScrollClock.now()).isMoving {
-                self.controller?.invalidatePlaybackState()
+                self.refreshPlayerState()
             }
         }
         RunLoop.main.add(timer, forMode: .common)
         housekeeping = timer
     }
 
-    // MARK: Rendering
+    private func saveDiagnostics() {
+        guard let activeSince, let style = controllerStyle else { return }
+        let seconds = Int(Date().timeIntervalSince(activeSince))
+        let frames: String
+        switch style {
+        case .camera:
+            frames = "кадров \(canvasView.framesDrawn), из них в фоне \(canvasView.framesDrawnInBackground)"
+        case .player:
+            lock.lock()
+            let total = framesEnqueued
+            let background = framesEnqueuedInBackground
+            let recoveries = layerRecoveries
+            lock.unlock()
+            frames = "кадров \(total), из них в фоне \(background), восстановлений \(recoveries)"
+        }
+        let audio = "звук: прерываний \(KeepAlive.shared.interruptions), перезапусков \(KeepAlive.shared.restarts)"
+        let text = "\(style.title) · \(seconds) с · \(frames) · \(audio)"
+        diagnostics = text
+        UserDefaults.standard.set(text, forKey: FloatingPrompter.diagnosticsKey)
+    }
+
+    // MARK: Rendering (preview and player window)
 
     private func startRendering() {
         guard timer == nil else { return }
@@ -396,18 +595,12 @@ final class FloatingPrompter: NSObject, ObservableObject {
     /// Runs on `renderQueue` 60 times a second.
     private func renderTick() {
         let now = ScrollClock.now()
+        let shared = readShared(at: now)
+        // The preview is invisible while the app is in the background; only a player window
+        // (which shows these very frames) has to keep going.
+        if shared.previewPaused { return }
 
-        lock.lock()
-        let content = self.content
-        let version = contentVersion
-        let requestedWidth = renderWidth
-        if let toast, toast.until <= now { self.toast = nil }
-        if let hint, hint.until <= now { self.hint = nil }
-        let toastText = toast?.text
-        let hintText = hint?.text
-        lock.unlock()
-
-        let size = FloatingPrompter.bufferSize(ratio: content.windowRatio, requestedWidth: requestedWidth)
+        let size = FloatingPrompter.bufferSize(ratio: shared.content.windowRatio, requestedWidth: shared.renderWidth)
         let clock = session.clock
         let rate = FloatingPrompter.frameRate
 
@@ -426,23 +619,23 @@ final class FloatingPrompter: NSObject, ObservableObject {
                 var slot = max(nextSlot, lastSlot - 1)
                 while slot <= lastSlot {
                     let time = Double(slot) / rate
-                    let state = FloatingPrompter.frameState(clock.snapshot(at: time), toast: toastText, hint: hintText)
-                    enqueue(content: content, state: state, size: size, time: time, scheduled: true)
+                    let state = FloatingPrompter.frameState(clock.snapshot(at: time), toast: shared.toast, hint: shared.hint)
+                    enqueue(content: shared.content, state: state, size: size, time: time, scheduled: true)
                     slot += 1
                 }
                 nextSlot = lastSlot + 1
             } else {
                 // Unknown layer clock: show every frame as soon as it is ready.
-                let state = FloatingPrompter.frameState(clock.snapshot(at: now), toast: toastText, hint: hintText)
-                enqueue(content: content, state: state, size: size, time: now, scheduled: false)
+                let state = FloatingPrompter.frameState(clock.snapshot(at: now), toast: shared.toast, hint: shared.hint)
+                enqueue(content: shared.content, state: state, size: size, time: now, scheduled: false)
             }
             lastSignature = nil
         } else {
             // Still text: draw only when something changed, plus a keep-alive twice a second.
-            let state = FloatingPrompter.frameState(clock.snapshot(at: now), toast: toastText, hint: hintText)
-            let signature = Signature(state: state, contentVersion: version, width: size.width, height: size.height)
+            let state = FloatingPrompter.frameState(clock.snapshot(at: now), toast: shared.toast, hint: shared.hint)
+            let signature = Signature(state: state, contentVersion: shared.version, width: size.width, height: size.height)
             if signature != lastSignature || now - lastEnqueueTime > 0.5 {
-                enqueue(content: content, state: state, size: size, time: now, scheduled: false)
+                enqueue(content: shared.content, state: state, size: size, time: now, scheduled: false)
                 lastSignature = signature
             }
         }
@@ -470,22 +663,31 @@ final class FloatingPrompter: NSObject, ObservableObject {
 
         // Timestamps must only grow.
         var pts = CMTime(seconds: time, preferredTimescale: 600)
-        var isLate = !scheduled
+        var displayImmediately = !scheduled
         if lastPTS.isValid, CMTimeCompare(pts, lastPTS) <= 0 {
             pts = CMTimeAdd(lastPTS, CMTime(value: 1, timescale: 600))
-            isLate = false
+            displayImmediately = false
         }
         lastPTS = pts
 
-        guard let sample = makeSampleBuffer(buffer, pts: pts, displayImmediately: isLate) else { return }
+        guard let sample = makeSampleBuffer(buffer, pts: pts, displayImmediately: displayImmediately) else { return }
 
+        // iOS takes video resources away from background apps, which leaves the layer failed
+        // (a black window). Flushing brings it back.
+        var recovered = false
         if displayLayer.status == .failed || displayLayer.requiresFlushToResumeDecoding {
             displayLayer.flush()
+            recovered = true
         }
-        if displayLayer.isReadyForMoreMediaData {
-            displayLayer.enqueue(sample)
-            lastEnqueueTime = ScrollClock.now()
-        }
+        guard displayLayer.isReadyForMoreMediaData else { return }
+        displayLayer.enqueue(sample)
+        lastEnqueueTime = ScrollClock.now()
+
+        lock.lock()
+        framesEnqueued += 1
+        if isInBackground { framesEnqueuedInBackground += 1 }
+        if recovered { layerRecoveries += 1 }
+        lock.unlock()
     }
 
     private func makeSampleBuffer(_ buffer: CVPixelBuffer, pts: CMTime, displayImmediately: Bool) -> CMSampleBuffer? {
@@ -531,26 +733,48 @@ final class FloatingPrompter: NSObject, ObservableObject {
 
 extension FloatingPrompter: AVPictureInPictureControllerDelegate {
 
+    func pictureInPictureControllerWillStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+        DispatchQueue.main.async {
+            KeepAlive.shared.start()
+            if self.controllerStyle == .camera {
+                self.canvasView.start()
+            }
+        }
+    }
+
     func pictureInPictureControllerDidStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
         DispatchQueue.main.async {
             self.isStarting = false
+            self.pendingStart = false
             self.isActive = true
+            self.activeSince = Date()
+            self.lock.lock()
+            self.framesEnqueued = 0
+            self.framesEnqueuedInBackground = 0
+            self.layerRecoveries = 0
+            self.lock.unlock()
+            KeepAlive.shared.start()
+            if self.controllerStyle == .camera {
+                self.canvasView.start()
+            }
             self.startHousekeeping()
             self.phaseChanged(self.session.phase)
             if self.openCameraOnStart {
                 self.openCameraOnStart = false
                 self.openSystemCamera()
             }
+            // The window may have opened by itself while the user was already leaving the app.
+            self.autoStartIfNeeded()
         }
     }
 
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, failedToStartPictureInPictureWithError error: Error) {
         let description = error.localizedDescription
         DispatchQueue.main.async {
-            if !self.retriedWithExclusiveAudio {
+            if !self.retriedWithExclusiveAudio, self.isStarting {
                 // One more try with an audio session that does not mix with other apps.
                 self.retriedWithExclusiveAudio = true
-                self.configureAudioSession(mixWithOthers: false)
+                KeepAlive.activateSession(mixWithOthers: false)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                     guard self.isStarting, !self.isActive else { return }
                     pictureInPictureController.startPictureInPicture()
@@ -560,6 +784,8 @@ extension FloatingPrompter: AVPictureInPictureControllerDelegate {
             self.isStarting = false
             self.pendingStart = false
             self.openCameraOnStart = false
+            self.canvasView.stop()
+            KeepAlive.shared.stop()
             self.message = "Окно не запустилось: \(description)"
         }
     }
@@ -569,12 +795,18 @@ extension FloatingPrompter: AVPictureInPictureControllerDelegate {
         renderWidth = nil
         lock.unlock()
         DispatchQueue.main.async {
+            self.saveDiagnostics()
             self.isStarting = false
             self.isActive = false
+            self.activeSince = nil
             self.housekeeping?.invalidate()
             self.housekeeping = nil
+            self.canvasView.stop()
+            KeepAlive.shared.stop()
             self.session.pause()
             self.showHint(nil)
+            // The kind of window may have been changed while this one was open.
+            self.makeControllerIfNeeded()
         }
     }
 
@@ -583,7 +815,7 @@ extension FloatingPrompter: AVPictureInPictureControllerDelegate {
     }
 }
 
-// MARK: - AVPictureInPictureSampleBufferPlaybackDelegate
+// MARK: - AVPictureInPictureSampleBufferPlaybackDelegate (player window only)
 
 extension FloatingPrompter: AVPictureInPictureSampleBufferPlaybackDelegate {
 
