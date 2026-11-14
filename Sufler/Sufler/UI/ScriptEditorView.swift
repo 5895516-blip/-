@@ -149,7 +149,13 @@ struct ScriptEditorView: View {
         .padding(.horizontal, 16)
         .padding(.top, 10)
         .padding(.bottom, 8)
-        .background(Theme.background.opacity(0.96))
+        .frame(maxWidth: .infinity)
+        .background(
+            // Solid down to the very edge of the screen, so the text never shows under the button.
+            Theme.background
+                .overlay(Rectangle().fill(Theme.cardStroke).frame(height: 1), alignment: .top)
+                .ignoresSafeArea(edges: .bottom)
+        )
     }
 
     // MARK: Actions
