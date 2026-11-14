@@ -43,7 +43,7 @@ struct FloatingScreen: View {
             floating.prepare(text: script?.text ?? "")
             UIApplication.shared.isIdleTimerDisabled = true
             if UserDefaults.standard.bool(forKey: "sufler.autoplay") {
-                floating.session.play()
+                floating.togglePlayback()
             }
         }
         .onDisappear {
@@ -177,7 +177,7 @@ struct FloatingScreen: View {
             Toggle("Запускать текст, когда ухожу в Камеру", isOn: $settings.autoStart)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Обратный отсчёт перед стартом")
+                Text("Обратный отсчёт")
                     .font(.system(size: 15))
                     .foregroundColor(.white)
                 Picker("Обратный отсчёт", selection: $settings.countdownSeconds) {
@@ -186,9 +186,10 @@ struct FloatingScreen: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                Text("За это время успейте нажать запись и встать в кадр.")
+                Text("Столько времени у вас есть после ухода в Камеру, чтобы нажать запись и встать в кадр. При старте вручную отсчёт не дольше 3 секунд.")
                     .font(.system(size: 12))
                     .foregroundColor(Theme.tertiaryText)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Toggle("Сразу открывать Камеру", isOn: $settings.openCameraAfterStart)

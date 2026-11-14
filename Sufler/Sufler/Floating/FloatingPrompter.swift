@@ -283,8 +283,14 @@ final class FloatingPrompter: NSObject, ObservableObject {
 
     // MARK: Transport (in-app buttons, window buttons and Shortcuts actions)
 
+    /// A start asked for by hand (a button, the window, a Shortcuts action) needs only a short
+    /// countdown; the long one is for walking into the frame after leaving the app.
+    private var manualCountdown: Int {
+        min(3, settings.countdownSeconds)
+    }
+
     func togglePlayback() {
-        session.toggle()
+        session.toggle(countdown: manualCountdown)
     }
 
     func restart() {
@@ -822,7 +828,7 @@ extension FloatingPrompter: AVPictureInPictureSampleBufferPlaybackDelegate {
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, setPlaying playing: Bool) {
         DispatchQueue.main.async {
             if playing {
-                self.session.play()
+                self.session.play(countdown: self.manualCountdown)
             } else {
                 self.session.pause()
             }

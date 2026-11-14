@@ -157,7 +157,11 @@ final class FloatingFrameRenderer {
             context.translateBy(x: 0, y: size.height)
             context.rotate(by: -.pi / 2)
         }
-        context.translateBy(x: (visible.width - canvas.width * scale) / 2, y: (visible.height - canvas.height * scale) / 2)
+        // Centre on whole pixels, otherwise resting text would be drawn slightly blurred.
+        let resolution = max(1, pixelsPerUnit)
+        let insetX = ((visible.width - canvas.width * scale) / 2 * resolution).rounded(.down) / resolution
+        let insetY = ((visible.height - canvas.height * scale) / 2 * resolution).rounded(.down) / resolution
+        context.translateBy(x: insetX, y: insetY)
         context.scaleBy(x: scale, y: scale)
         context.clip(to: CGRect(origin: .zero, size: canvas))
         context.setShouldSmoothFonts(false)
@@ -192,7 +196,12 @@ final class FloatingFrameRenderer {
             let alpha = content.dimReadLines
                 ? ScriptLayout.readOpacity(lineTop: line.top, offset: offset, lineHeight: layout.lineHeight)
                 : 1
-            layout.draw(line, in: context, at: CGPoint(x: leftPadding, y: line.top - top), color: textColor, alpha: alpha)
+            var lineY = line.top - top
+            if !state.isMoving {
+                // Each resting line sits on a whole pixel; while moving they must slide together.
+                lineY = (lineY * scale).rounded() / scale
+            }
+            layout.draw(line, in: context, at: CGPoint(x: leftPadding, y: lineY), color: textColor, alpha: alpha)
         }
 
         // Soft edges at the top and bottom

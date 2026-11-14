@@ -102,14 +102,15 @@ final class PrompterSession: ObservableObject {
     // MARK: Transport
 
     /// Starts (after the countdown) from the current position, or from the top when at the end.
-    func play() {
+    /// - Parameter countdown: seconds to count down first; `nil` uses `countdownSeconds`.
+    func play(countdown: Int? = nil) {
         guard hasText else { return }
         let time = now()
         if clock.progress(at: time) >= 0.9995 {
             clock.pause(at: time)
             clock.setProgress(0, at: time)
         }
-        clock.start(at: time, delay: Double(max(0, countdownSeconds)))
+        clock.start(at: time, delay: Double(max(0, countdown ?? countdownSeconds)))
         startTicker()
         refresh()
     }
@@ -120,11 +121,11 @@ final class PrompterSession: ObservableObject {
         refresh()
     }
 
-    func toggle() {
+    func toggle(countdown: Int? = nil) {
         if clock.isRunning {
             pause()
         } else {
-            play()
+            play(countdown: countdown)
         }
     }
 
