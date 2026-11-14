@@ -1,0 +1,41 @@
+name: Sufler iOS
+
+on:
+  push:
+    branches: ["claude/**"]
+    paths:
+      - "Sufler/**"
+      - ".github/workflows/sufler-ios.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: sufler-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Toolchain probe (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-latest]
+    steps:
+      - name: System
+        run: |
+          sw_vers
+          uname -m
+          sysctl -n hw.ncpu
+      - name: Xcode
+        run: |
+          xcodebuild -version
+          swift --version
+          ls /Applications | grep -i xcode || true
+      - name: Simulators
+        run: |
+          xcrun simctl list runtimes
+          xcrun simctl list devices available | grep -E "^--|iPhone" | head -60
